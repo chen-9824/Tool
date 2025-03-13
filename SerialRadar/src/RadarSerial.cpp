@@ -1,5 +1,5 @@
 #include "RadarSerial.h"
-#include "pch.h"
+#include "../pch.h"
 
 #define MAX_QUEUE_SIZE 1000 // 限制缓冲队列最大大小
 
@@ -19,6 +19,15 @@ void RadarSerial::set_frame_flag(uint8_t frame_start_flag, uint8_t frame_end_fla
     _frame_end_flag = frame_end_flag;     // 帧结束字符
 }
 
+void RadarSerial::set_frame_flag(int frame_min_size,
+                                 std::vector<uint8_t> frame_header,
+                                 std::vector<uint8_t> frame_tail)
+{
+    _frame_min_size = frame_min_size;
+    _frame_header = frame_header;
+    _frame_tail = frame_tail;
+}
+
 bool RadarSerial::openSerial()
 {
     std::lock_guard<std::mutex> lock(ioMutex);
@@ -32,14 +41,14 @@ bool RadarSerial::openSerial()
     tcgetattr(fd, &options);
     cfsetispeed(&options, baudrate);
     cfsetospeed(&options, baudrate);
-    options.c_cflag &= ~PARENB;
-    options.c_cflag &= ~CSTOPB;
-    options.c_cflag &= ~CSIZE;
-    options.c_cflag |= CS8;
-    options.c_cflag |= (CLOCAL | CREAD);
-    options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-    options.c_cc[VMIN] = 1;
-    options.c_cc[VTIME] = 10;
+    options.c_cflag &= ~PARENB;                         // 不启用奇偶校验
+    options.c_cflag &= ~CSTOPB;                         // 使用 1 个停止位
+    options.c_cflag &= ~CSIZE;                          // 清空数据位设置
+    options.c_cflag |= CS8;                             // 设置数据位为 8 位
+    options.c_cflag |= (CLOCAL | CREAD);                // 忽略 modem 控制线 启用接收功能
+    options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // 闭回显，使用非规范模式（避免 \n 换行等待）
+    options.c_cc[VMIN] = 1;                             // 至少读取 1 个字节才返回（即阻塞模式）
+    options.c_cc[VTIME] = 10;                           // 读取超时时间，单位为 100ms（即 1 秒超时）。
     tcsetattr(fd, TCSANOW, &options);
     return true;
 }
@@ -156,29 +165,83 @@ std::vector<uint8_t> RadarSerial::getLatestData()
     return {};
 }
 
-void RadarSerial::parseData(const std::vector<uint8_t> &data)
+std::vector<std::vector<uint8_t>> RadarSerial::parseFrame(std::vector<uint8_t> &buffer)
 {
-    if (data.size() < 5)
-        return;
-    if (data[0] != 0x55 || data[1] != 0xAA)
-        return;
-    int dataLen = data[2] << 8 | data[3];
-    if (data.size() < dataLen + 5)
-        return;
-    uint8_t checksum = 0;
-    for (size_t i = 0; i < dataLen + 4; i++)
-        checksum += data[i];
-    if (checksum != data[dataLen + 4])
+    std::vector<std::vector<uint8_t>> allParseFrame;
+    if (buffer.size() < _frame_min_size)
     {
-        std::cerr << "校验失败！" << std::endl;
-        return;
+        spdlog::trace("frame smaller than _frame_min_size");
+        return allParseFrame;
     }
-    std::cout << "解析到数据: ";
-    for (size_t i = 4; i < dataLen + 4; i++)
+
+    auto it = buffer.begin();
+
+    while (true)
     {
-        std::cout << std::hex << (int)data[i] << " ";
+        // 1. 查找帧头
+        it = std::search(it, buffer.end(), _frame_header.begin(), _frame_header.end());
+
+        if (it == buffer.end())
+        {
+            break; // 没找到帧头，结束解析
+        }
+
+        // 2. 计算帧头位置
+        size_t header_pos = std::distance(buffer.begin(), it);
+        spdlog::trace("Found frame header at position: {}", header_pos);
+
+        // 3. 检查是否有足够的数据读取帧内数据长度
+        if (std::distance(it, buffer.end()) < _frame_header.size() + 2)
+        {
+            spdlog::error("Incomplete frame, waiting for more data...");
+            break;
+        }
+
+        // 4. 读取帧内数据长度（小端格式，假设长度字段占 2 字节）
+        size_t length_pos = header_pos + _frame_header.size();
+        uint16_t data_length = buffer[length_pos] | (buffer[length_pos + 1] << 8);
+
+        spdlog::trace("Frame data length: {}", data_length);
+
+        // 5. 计算完整帧长度
+        size_t frame_size = _frame_header.size() + 2 + data_length + _frame_tail.size();
+
+        // 6. 检查数据是否足够完整帧
+        if (std::distance(it, buffer.end()) < frame_size)
+        {
+            spdlog::error("Incomplete frame, waiting for more data...");
+            break;
+        }
+
+        // 7. 检查帧尾
+        size_t tail_pos = header_pos + frame_size - _frame_tail.size();
+        if (!std::equal(buffer.begin() + tail_pos, buffer.begin() + tail_pos + _frame_tail.size(), _frame_tail.begin()))
+        {
+            spdlog::error("Frame tail mismatch, discarding frame.");
+            it++; // 继续查找下一个帧头
+            continue;
+        }
+
+        // 8. 提取帧数据
+        std::vector<uint8_t> frame_data(buffer.begin() + length_pos + 2, buffer.begin() + tail_pos);
+        allParseFrame.push_back(frame_data);
+#if 0
+        std::cout
+            << "Extracted frame data: ";
+        for (uint8_t byte : frame_data)
+        {
+            std::cout << std::hex << static_cast<int>(byte) << " ";
+        }
+        std::cout << std::dec << std::endl;
+#endif
+        // 9. 移除已解析的数据
+        buffer.erase(buffer.begin(), buffer.begin() + frame_size);
+
+        // 10. 继续查找下一帧
+        it = buffer.begin();
     }
-    std::cout << std::endl;
+
+    return allParseFrame;
 }
 
 std::vector<std::vector<uint8_t>> RadarSerial::getAllData()

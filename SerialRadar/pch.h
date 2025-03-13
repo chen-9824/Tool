@@ -11,6 +11,8 @@
 #include <cstring>
 #include <sstream>
 #include <errno.h>
+#include <iterator>
+#include <algorithm>
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
