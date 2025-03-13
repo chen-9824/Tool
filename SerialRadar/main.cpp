@@ -23,6 +23,7 @@ int main(int, char **)
     std::string input;
     while (true)
     {
+#if 0
         std::vector<HLK_LD2451::target_info> data = radar->get_target_data();
         if (!data.empty())
         {
@@ -33,8 +34,10 @@ int main(int, char **)
             spdlog::debug("**********************************");
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+#endif
 
-        /*std::cout << "请输入内容（输入 'exit' 退出）: ";
+#if 1
+        std::cout << "请输入内容（输入 'exit' 退出）: ";
         std::getline(std::cin, input);
         if (input == "exit")
         {
@@ -43,22 +46,19 @@ int main(int, char **)
         }
         std::cout << "你输入的是：" << input << std::endl;
 
-        vector<uint8_t> cmd;
-        std::cout << "ASCII 码：";
-        for (char ch : input)
+        if (input == "1")
         {
-            uint8_t d = static_cast<uint8_t>(ch);
-            std::cout << d << " ";
-            cmd.push_back(d);
+            radar->enable_cfg_mode();
         }
-        std::cout << std::endl;
-
-        if (cmd[0] == 'S')
+        else if (input == "2")
         {
-            cmd.push_back(static_cast<uint8_t>('\r'));
-            cmd.push_back(static_cast<uint8_t>('\n'));
-            // radar->sendCommand(cmd);
-        }*/
+            radar->disable_cfg_mode();
+        }
+        else if (input == "3")
+        {
+            radar->read_target_cfg();
+        }
+#endif
     }
 
     radar->deinit();

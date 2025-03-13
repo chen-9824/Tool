@@ -30,13 +30,20 @@ public:
 
     std::vector<target_info> get_target_data();
 
+    void send_cmd(const std::vector<uint8_t> &cmd_key, const std::vector<uint8_t> &cmd_val);
+
+    void enable_cfg_mode(); // 对雷达下发的任何其他命令必须在此命令下发后方可执行，否则无效
+    void disable_cfg_mode();
+
+    void read_target_cfg();
+
 private:
-    static void read_thread(int id, HLK_LD2451 *radar);
+    static void
+    read_thread(int id, HLK_LD2451 *radar);
     void parse_hlk_radar_data(const std::vector<std::vector<uint8_t>> &data);
 
 private:
-    std::shared_ptr<RadarSerial> _radar;
-    bool _available = false;
+    // std::shared_ptr<RadarSerial> _radar;
 
     std::thread _read_t;
     std::atomic<bool> _reading;

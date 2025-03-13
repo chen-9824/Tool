@@ -18,7 +18,10 @@ public:
     bool openSerial();
     void closeSerial();
 
-    void set_frame_flag(uint8_t frame_start_flag, uint8_t frame_end_flag);
+    bool is_available();
+
+    void
+    set_frame_flag(uint8_t frame_start_flag, uint8_t frame_end_flag);
     void set_frame_flag(int frame_min_size, std::vector<uint8_t> frame_header, std::vector<uint8_t> frame_tail);
 
     void startReading();
@@ -33,7 +36,9 @@ public:
 private:
     void readLoop();
 
+protected:
 private:
+    bool _available = false;
     int fd;
     std::string port;
     int baudrate;

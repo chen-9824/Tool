@@ -47,20 +47,29 @@ bool RadarSerial::openSerial()
     options.c_cflag |= CS8;                             // 设置数据位为 8 位
     options.c_cflag |= (CLOCAL | CREAD);                // 忽略 modem 控制线 启用接收功能
     options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // 闭回显，使用非规范模式（避免 \n 换行等待）
-    options.c_cc[VMIN] = 1;                             // 至少读取 1 个字节才返回（即阻塞模式）
+    options.c_cc[VMIN] = 0;                             // 至少读取 0 个字节才返回（非阻塞模式）
     options.c_cc[VTIME] = 10;                           // 读取超时时间，单位为 100ms（即 1 秒超时）。
+    options.c_iflag &= ~(IXON | IXOFF | IXANY);         // 关闭软件流控制
     tcsetattr(fd, TCSANOW, &options);
+
+    _available = true;
     return true;
 }
 
 void RadarSerial::closeSerial()
 {
+    _available = false;
     std::lock_guard<std::mutex> lock(ioMutex);
     if (fd != -1)
     {
         close(fd);
         fd = -1;
     }
+}
+
+bool RadarSerial::is_available()
+{
+    return _available;
 }
 
 void RadarSerial::startReading()
@@ -83,6 +92,12 @@ void RadarSerial::stopReading()
 
 void RadarSerial::readLoop()
 {
+    if (fd == -1)
+    {
+        spdlog::error("Serial port not open");
+        return;
+    }
+
     std::vector<uint8_t> buffer(256);
     std::vector<uint8_t> frameBuffer; // 存放拼接后的完整帧
 
@@ -132,17 +147,21 @@ void RadarSerial::readLoop()
                     // frameBuffer.clear();
                 }
             }
-            // parseData(buffer);
         }
         buffer.resize(256);
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        // usleep(100 000);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        //  usleep(100 000);
     }
 }
 
 bool RadarSerial::sendCommand(const std::vector<uint8_t> &cmd)
 {
-    // std::lock_guard<std::mutex> lock(ioMutex);
+    if (fd == -1)
+    {
+        spdlog::error("Serial port not open");
+        return -1;
+    }
+    std::lock_guard<std::mutex> lock(ioMutex);
     int bytesWritten = write(fd, cmd.data(), cmd.size());
     if (bytesWritten < 0)
     {
@@ -197,7 +216,7 @@ std::vector<std::vector<uint8_t>> RadarSerial::parseFrame(std::vector<uint8_t> &
             break;
         }
 
-        // 4. 读取帧内数据长度（小端格式，假设长度字段占 2 字节）
+        // 4. 读取帧内数据长度（小端格式，长度字段占 2 字节）
         size_t length_pos = header_pos + _frame_header.size();
         uint16_t data_length = buffer[length_pos] | (buffer[length_pos + 1] << 8);
 

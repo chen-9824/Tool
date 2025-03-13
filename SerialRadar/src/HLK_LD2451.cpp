@@ -12,6 +12,9 @@ const int frame_target_size = 7;
 const std::vector<uint8_t> frame_header{0xf4, 0xf3, 0xf2, 0xf1};
 const std::vector<uint8_t> frame_end{0xf8, 0xf7, 0xf6, 0xf5};
 
+const std::vector<uint8_t> cmd_header{0xfd, 0xfc, 0xfb, 0xfa};
+const std::vector<uint8_t> cmd_end{0x04, 0x03, 0x02, 0x01};
+
 HLK_LD2451::HLK_LD2451(const std::string &port, int baudrate) : RadarSerial(port, baudrate)
 {
     _reading.store(false);
@@ -24,18 +27,17 @@ HLK_LD2451::~HLK_LD2451()
 
 int HLK_LD2451::init()
 {
-    _radar = make_shared<RadarSerial>("/dev/ttyCH341USB0", B115200);
+    //_radar = make_shared<RadarSerial>("/dev/ttyCH341USB0", B115200);
 
-    if (!_radar->openSerial())
+    if (!openSerial())
     {
         spdlog::error("/dev/ttyCH341USB0 无法打开");
         return -1;
     }
 
     spdlog::info("雷达串口已打开");
-    _available = true;
 
-    _radar->set_frame_flag(frame_min_size, frame_header, frame_end);
+    set_frame_flag(frame_min_size, frame_header, frame_end);
     return 0;
 }
 
@@ -48,8 +50,8 @@ void HLK_LD2451::deinit()
         _read_t.join();
     }
 
-    _radar->stopReading();
-    _radar->closeSerial();
+    stopReading();
+    closeSerial();
 }
 
 void HLK_LD2451::print_target_info(const target_info &data)
@@ -79,10 +81,63 @@ std::vector<HLK_LD2451::target_info> HLK_LD2451::get_target_data()
     return allData;
 }
 
+void HLK_LD2451::send_cmd(const std::vector<uint8_t> &cmd_key, const std::vector<uint8_t> &cmd_val)
+{
+    if (!is_available())
+    {
+        return;
+    }
+
+    std::vector<uint8_t> cmd;
+    cmd.reserve(cmd_header.size() + 2 + cmd_key.size() + cmd_val.size() + cmd_end.size());
+    cmd.insert(cmd.end(), cmd_header.begin(), cmd_header.end());
+
+    int size = cmd_key.size() + cmd_val.size();
+    uint8_t high, low;
+    high = 0x00;
+    if (size > 255)
+    {
+        high = (size >> 8) & 0xFF;
+    }
+    low = size & 0xFF;
+
+    cmd.push_back(low);
+    cmd.push_back(high);
+
+    cmd.insert(cmd.end(), cmd_key.begin(), cmd_key.end());
+    cmd.insert(cmd.end(), cmd_val.begin(), cmd_val.end());
+
+    cmd.insert(cmd.end(), cmd_end.begin(), cmd_end.end());
+
+    sendCommand(cmd);
+}
+
+void HLK_LD2451::enable_cfg_mode()
+{
+    std::vector<uint8_t> key{0xff, 0x00};
+    std::vector<uint8_t> val{0x01, 0x00};
+    send_cmd(key, val);
+}
+
+void HLK_LD2451::disable_cfg_mode()
+{
+    std::vector<uint8_t> key{0xfe, 0x00};
+    std::vector<uint8_t> val;
+    send_cmd(key, val);
+}
+
+void HLK_LD2451::read_target_cfg()
+{
+    std::vector<uint8_t> key{0x12, 0x00};
+    std::vector<uint8_t> val;
+    send_cmd(key, val);
+}
+
 void HLK_LD2451::read_thread(int id, HLK_LD2451 *radar)
 {
-    if (!radar || !radar->_available)
+    if (!radar || !radar->is_available())
     {
+        spdlog::error("radar is not available, read_thread start failed");
         return;
     }
 #if READ_LOG_FIEL
@@ -96,11 +151,11 @@ void HLK_LD2451::read_thread(int id, HLK_LD2451 *radar)
 #else
         spdlog::info("线程 {}: 运行中...读取串口数据并打印: ", id);
 #endif
-        radar->_radar->startReading();
+        radar->startReading();
 
         while (radar->_reading.load())
         {
-            std::vector<std::vector<uint8_t>> allData = radar->_radar->getAllData();
+            std::vector<std::vector<uint8_t>> allData = radar->getAllData();
 
             if (!allData.empty())
             {
@@ -127,7 +182,7 @@ void HLK_LD2451::read_thread(int id, HLK_LD2451 *radar)
                         }
                         std::cout << std::endl;
 
-                        radar->parse_hlk_radar_data(radar->_radar->parseFrame(data));
+                        radar->parse_hlk_radar_data(radar->parseFrame(data));
                     }
                 }
 
