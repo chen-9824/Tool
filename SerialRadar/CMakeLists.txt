@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.10.0)
 project(RadarSerial VERSION 0.1.0 LANGUAGES C CXX)
 
-set(CMAKE_PREFIX_PATH "${PROJECT_SOURCE_DIR}/spdlog/lib/cmake/spdlog/")
+set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/spdlog/lib/cmake/spdlog/")
 find_package(spdlog REQUIRED)
+
+include_directories(${CMAKE_SOURCE_DIR}/spdlog/include)
 
 add_executable(RadarSerial main.cpp RadarSerial.cpp)
 

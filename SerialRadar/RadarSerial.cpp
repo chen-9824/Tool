@@ -133,13 +133,14 @@ void RadarSerial::readLoop()
 
 bool RadarSerial::sendCommand(const std::vector<uint8_t> &cmd)
 {
-    std::lock_guard<std::mutex> lock(ioMutex);
+    // std::lock_guard<std::mutex> lock(ioMutex);
     int bytesWritten = write(fd, cmd.data(), cmd.size());
     if (bytesWritten < 0)
     {
-        std::cerr << "发送失败: " << strerror(errno) << std::endl;
+        spdlog::error("RadarSerial sendCommand 失败: {}", strerror(errno));
         return false;
     }
+    spdlog::debug("RadarSerial sendCommand 成功: {}", std::string(cmd.begin(), cmd.end()));
     return true;
 }
 
