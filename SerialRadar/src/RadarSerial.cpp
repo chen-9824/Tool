@@ -4,7 +4,7 @@
 #define MAX_QUEUE_SIZE 1000 // 限制缓冲队列最大大小
 
 RadarSerial::RadarSerial(const std::string &port, int baudrate)
-    : port(port), baudrate(baudrate), fd(-1), running(false) {}
+    : port(port), baudrate(baudrate), fd(-1), running(false), pausing(false) {}
 
 RadarSerial::~RadarSerial()
 {
@@ -90,6 +90,10 @@ void RadarSerial::stopReading()
     }
 }
 
+void RadarSerial::pauseReading() { pausing.store(true); }
+
+void RadarSerial::resumeReading() { pausing.store(false); }
+
 void RadarSerial::readLoop()
 {
     if (fd == -1)
@@ -103,6 +107,13 @@ void RadarSerial::readLoop()
 
     while (running.load())
     {
+        while (pausing)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            if (!running.load())
+                break;
+        }
+
         std::lock_guard<std::mutex> lock(ioMutex);
         int bytesRead = read(fd, buffer.data(), buffer.size());
         if (bytesRead > 0)
@@ -161,14 +172,18 @@ bool RadarSerial::sendCommand(const std::vector<uint8_t> &cmd)
         spdlog::error("Serial port not open");
         return -1;
     }
-    std::lock_guard<std::mutex> lock(ioMutex);
-    int bytesWritten = write(fd, cmd.data(), cmd.size());
-    if (bytesWritten < 0)
+
     {
-        spdlog::error("RadarSerial sendCommand 失败: {}", strerror(errno));
-        return false;
+        std::lock_guard<std::mutex> lock(ioMutex);
+        int bytesWritten = write(fd, cmd.data(), cmd.size());
+        if (bytesWritten < 0)
+        {
+            spdlog::error("RadarSerial sendCommand 失败: {}", strerror(errno));
+            return false;
+        }
+        spdlog::debug("RadarSerial sendCommand 成功: {}", std::string(cmd.begin(), cmd.end()));
     }
-    spdlog::debug("RadarSerial sendCommand 成功: {}", std::string(cmd.begin(), cmd.end()));
+
     return true;
 }
 
@@ -184,12 +199,12 @@ std::vector<uint8_t> RadarSerial::getLatestData()
     return {};
 }
 
-std::vector<std::vector<uint8_t>> RadarSerial::parseFrame(std::vector<uint8_t> &buffer)
+std::vector<std::vector<uint8_t>> RadarSerial::cutFrame(std::vector<uint8_t> &buffer, const std::vector<uint8_t> &frame_header, const std::vector<uint8_t> &frame_tail, int complete_frame_size)
 {
     std::vector<std::vector<uint8_t>> allParseFrame;
-    if (buffer.size() < _frame_min_size)
+    if (buffer.size() < complete_frame_size)
     {
-        spdlog::trace("frame smaller than _frame_min_size");
+        spdlog::trace("frame smaller than complete_frame_size");
         return allParseFrame;
     }
 
@@ -198,7 +213,7 @@ std::vector<std::vector<uint8_t>> RadarSerial::parseFrame(std::vector<uint8_t> &
     while (true)
     {
         // 1. 查找帧头
-        it = std::search(it, buffer.end(), _frame_header.begin(), _frame_header.end());
+        it = std::search(it, buffer.end(), frame_header.begin(), frame_header.end());
 
         if (it == buffer.end())
         {
@@ -210,20 +225,20 @@ std::vector<std::vector<uint8_t>> RadarSerial::parseFrame(std::vector<uint8_t> &
         spdlog::trace("Found frame header at position: {}", header_pos);
 
         // 3. 检查是否有足够的数据读取帧内数据长度
-        if (std::distance(it, buffer.end()) < _frame_header.size() + 2)
+        if (std::distance(it, buffer.end()) < frame_header.size() + 2)
         {
             spdlog::error("Incomplete frame, waiting for more data...");
             break;
         }
 
         // 4. 读取帧内数据长度（小端格式，长度字段占 2 字节）
-        size_t length_pos = header_pos + _frame_header.size();
+        size_t length_pos = header_pos + frame_header.size();
         uint16_t data_length = buffer[length_pos] | (buffer[length_pos + 1] << 8);
 
         spdlog::trace("Frame data length: {}", data_length);
 
         // 5. 计算完整帧长度
-        size_t frame_size = _frame_header.size() + 2 + data_length + _frame_tail.size();
+        size_t frame_size = frame_header.size() + 2 + data_length + frame_tail.size();
 
         // 6. 检查数据是否足够完整帧
         if (std::distance(it, buffer.end()) < frame_size)
@@ -233,8 +248,8 @@ std::vector<std::vector<uint8_t>> RadarSerial::parseFrame(std::vector<uint8_t> &
         }
 
         // 7. 检查帧尾
-        size_t tail_pos = header_pos + frame_size - _frame_tail.size();
-        if (!std::equal(buffer.begin() + tail_pos, buffer.begin() + tail_pos + _frame_tail.size(), _frame_tail.begin()))
+        size_t tail_pos = header_pos + frame_size - frame_tail.size();
+        if (!std::equal(buffer.begin() + tail_pos, buffer.begin() + tail_pos + frame_tail.size(), frame_tail.begin()))
         {
             spdlog::error("Frame tail mismatch, discarding frame.");
             it++; // 继续查找下一个帧头
@@ -261,6 +276,26 @@ std::vector<std::vector<uint8_t>> RadarSerial::parseFrame(std::vector<uint8_t> &
     }
 
     return allParseFrame;
+}
+
+std::vector<std::vector<uint8_t>> RadarSerial::parseFrame(std::vector<uint8_t> &buffer)
+{
+    return cutFrame(buffer, _frame_header, _frame_tail, _frame_min_size);
+}
+
+void RadarSerial::printf_uint8(const std::vector<uint8_t> &data)
+{
+    if (!data.empty())
+    {
+        std::string hex_str;
+        for (uint8_t byte : data)
+        {
+            // std::cout << "[0x" << std::hex << (int)byte << "]";
+            hex_str += fmt::format("[0x{:02X}] ", byte);
+        }
+        // std::cout << std::endl;
+        spdlog::debug("{}", hex_str);
+    }
 }
 
 std::vector<std::vector<uint8_t>> RadarSerial::getAllData()

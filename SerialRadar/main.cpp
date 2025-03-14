@@ -8,9 +8,12 @@ string dev_name = "/dev/ttyCH341USB0";
 
 int main(int, char **)
 {
-    spdlog::set_level(spdlog::level::debug);
 
-    shared_ptr<HLK_LD2451> radar = make_shared<HLK_LD2451>(dev_name, B115200);
+    spdlog::set_level(spdlog::level::debug);
+    // spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] [%^%l%$] [%s:%# %!()] %v");
+
+    shared_ptr<HLK_LD2451>
+        radar = make_shared<HLK_LD2451>(dev_name, B115200);
 
     if (radar->init() != 0)
     {

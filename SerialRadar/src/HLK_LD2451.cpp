@@ -12,12 +12,17 @@ const int frame_target_size = 7;
 const std::vector<uint8_t> frame_header{0xf4, 0xf3, 0xf2, 0xf1};
 const std::vector<uint8_t> frame_end{0xf8, 0xf7, 0xf6, 0xf5};
 
+int frame_ack_min_size = 14;
 const std::vector<uint8_t> cmd_header{0xfd, 0xfc, 0xfb, 0xfa};
 const std::vector<uint8_t> cmd_end{0x04, 0x03, 0x02, 0x01};
+
+const std::vector<uint8_t> cmd_enable_cfg_mode{0xff, 0x00};
+const std::vector<uint8_t> cmd_disable_cfg_mode{0xfe, 0x00};
 
 HLK_LD2451::HLK_LD2451(const std::string &port, int baudrate) : RadarSerial(port, baudrate)
 {
     _reading.store(false);
+    _pausing.store(false);
 }
 
 HLK_LD2451::~HLK_LD2451()
@@ -69,6 +74,28 @@ void HLK_LD2451::start_read_thread()
     _read_t = thread(read_thread, 1, this);
 }
 
+void HLK_LD2451::stop_read_thread()
+{
+    _reading.store(false);
+    if (_read_t.joinable())
+    {
+        _read_t.join();
+    }
+    spdlog::info("读线程已停止");
+}
+
+void HLK_LD2451::pause_read_thread()
+{
+    spdlog::info("暂停读线程");
+    _pausing.store(true);
+}
+
+void HLK_LD2451::resume_read_thread()
+{
+    spdlog::info("恢复读线程");
+    _pausing.store(false);
+}
+
 std::vector<HLK_LD2451::target_info> HLK_LD2451::get_target_data()
 {
     std::lock_guard<std::mutex> dataLock(dataMutex);
@@ -81,11 +108,20 @@ std::vector<HLK_LD2451::target_info> HLK_LD2451::get_target_data()
     return allData;
 }
 
-void HLK_LD2451::send_cmd(const std::vector<uint8_t> &cmd_key, const std::vector<uint8_t> &cmd_val)
+std::vector<uint8_t> HLK_LD2451::send_cmd(const std::vector<uint8_t> &cmd_key, const std::vector<uint8_t> &cmd_val)
 {
+    std::vector<uint8_t> res;
     if (!is_available())
     {
-        return;
+        return res;
+    }
+
+    uint16_t send_key = cmd_key[0] | (cmd_key[1] << 8);
+
+    if (cmd_key[0] == cmd_enable_cfg_mode[0] && cmd_key[1] == cmd_enable_cfg_mode[1])
+    {
+        // 使能配置模式前要停止读线程,, 保证下发命令能获取到回复
+        pause_read_thread();
     }
 
     std::vector<uint8_t> cmd;
@@ -109,28 +145,99 @@ void HLK_LD2451::send_cmd(const std::vector<uint8_t> &cmd_key, const std::vector
 
     cmd.insert(cmd.end(), cmd_end.begin(), cmd_end.end());
 
-    sendCommand(cmd);
+    spdlog::debug("下发命令:");
+    printf_uint8(cmd);
+
+    if (sendCommand(cmd))
+    {
+        if (cmd_key[0] == cmd_disable_cfg_mode[0] && cmd_key[1] == cmd_disable_cfg_mode[1])
+        {
+            // 退出配置模式需要重启读线程,不需要知道返回结果
+            resume_read_thread();
+            return res;
+        }
+
+        while (true)
+        {
+            spdlog::debug("获取下发命令回复...");
+            std::vector<uint8_t> allData = getLatestData();
+            if (!allData.empty())
+            {
+
+                spdlog::debug("allData:");
+                printf_uint8(allData);
+                std::vector<std::vector<uint8_t>> allResponse = cutFrame(allData, cmd_header, cmd_end, frame_ack_min_size);
+
+                for (std::vector<uint8_t> response : allResponse)
+                {
+                    if (!response.empty())
+                    {
+                        spdlog::debug("下发命令回复:");
+                        printf_uint8(response);
+                    }
+
+                    int key_pos = 0;
+                    uint16_t response_key = response[key_pos] | (response[key_pos + 1] << 8);
+
+                    // spdlog::debug("send_key: 0x{:04x}, response_key: 0x{:04x}", send_key, response_key);
+
+                    if (response_key == (send_key | 0x0100))
+                    {
+                        if (response[key_pos + 2] == 0x00)
+                        {
+                            res = std::vector<uint8_t>(response.begin() + (key_pos + 2), (response.end()));
+                            spdlog::debug("0x{:04x} 命令执行成功, 返回值如下:", send_key);
+                            printf_uint8(res);
+                            return res;
+                        }
+                        else if (response[key_pos + 2] == 0x01)
+                        {
+                            spdlog::error("{} 命令执行失败");
+                            return res;
+                        }
+                    }
+                }
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        }
+    }
+
+    return res;
 }
 
 void HLK_LD2451::enable_cfg_mode()
 {
-    std::vector<uint8_t> key{0xff, 0x00};
+
     std::vector<uint8_t> val{0x01, 0x00};
-    send_cmd(key, val);
+    std::vector<uint8_t> res = send_cmd(cmd_enable_cfg_mode, val);
 }
 
 void HLK_LD2451::disable_cfg_mode()
 {
-    std::vector<uint8_t> key{0xfe, 0x00};
     std::vector<uint8_t> val;
-    send_cmd(key, val);
+    std::vector<uint8_t> res = send_cmd(cmd_disable_cfg_mode, val);
 }
 
 void HLK_LD2451::read_target_cfg()
 {
     std::vector<uint8_t> key{0x12, 0x00};
     std::vector<uint8_t> val;
-    send_cmd(key, val);
+    std::vector<uint8_t> res = send_cmd(key, val);
+    if (!res.empty())
+    {
+        if (res[0] == 0x00)
+        {
+            spdlog::debug("最远探测距离: {} m", static_cast<int>(res[2]));
+            spdlog::debug("运动方向设置: {} ", static_cast<int>(res[3]));
+            spdlog::debug("最小运动速度设置: {} km/h", static_cast<int>(res[4]));
+            spdlog::debug("无目标延迟时间设置: {} s", static_cast<int>(res[5]));
+        }
+        else if (res[0] == 0x01)
+        {
+            spdlog::error("read_target_cfg failed");
+        }
+    }
 }
 
 void HLK_LD2451::read_thread(int id, HLK_LD2451 *radar)
@@ -155,6 +262,13 @@ void HLK_LD2451::read_thread(int id, HLK_LD2451 *radar)
 
         while (radar->_reading.load())
         {
+            while (radar->_pausing)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                if (!radar->_reading.load())
+                    break;
+            }
+
             std::vector<std::vector<uint8_t>> allData = radar->getAllData();
 
             if (!allData.empty())
@@ -170,14 +284,6 @@ void HLK_LD2451::read_thread(int id, HLK_LD2451 *radar)
                     {
                         for (uint8_t byte : data)
                         {
-                            /*if (isprint(byte))
-                            {
-                                std::cout << (char)byte; // 直接打印可读字符
-                            }
-                            else
-                            {
-                                std::cout << "[0x" << std::hex << (int)byte << "]"; // 不可读字符以十六进制显示
-                            }*/
                             std::cout << "[0x" << std::hex << (int)byte << "]";
                         }
                         std::cout << std::endl;

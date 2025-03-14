@@ -26,12 +26,21 @@ public:
 
     void startReading();
     void stopReading();
+    void pauseReading();
+    void resumeReading();
 
     bool sendCommand(const std::vector<uint8_t> &cmd);
     std::vector<std::vector<uint8_t>> getAllData();
     std::vector<uint8_t> getLatestData();
 
+    /*
+    裁剪buffer, 去掉frame_header 两字节帧长度 frame_tail 只保留帧内容返回
+    注意：该函数将修改buffer
+    */
+    std::vector<std::vector<uint8_t>> cutFrame(std::vector<uint8_t> &buffer, const std::vector<uint8_t> &frame_header, const std::vector<uint8_t> &frame_tail, int complete_frame_size);
     std::vector<std::vector<uint8_t>> parseFrame(std::vector<uint8_t> &buffer);
+
+    void printf_uint8(const std::vector<uint8_t> &data);
 
 private:
     void readLoop();
@@ -43,6 +52,7 @@ private:
     std::string port;
     int baudrate;
     std::atomic<bool> running;
+    std::atomic<bool> pausing;
     std::thread readThread;
     std::mutex ioMutex;
     std::mutex dataMutex;
