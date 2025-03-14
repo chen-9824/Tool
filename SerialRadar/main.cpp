@@ -5,6 +5,7 @@
 using namespace std;
 
 string dev_name = "/dev/ttyCH341USB0";
+string test_name = "/dev/ttyCH341USB0";
 
 int main(int, char **)
 {
