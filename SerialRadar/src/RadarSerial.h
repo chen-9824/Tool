@@ -41,6 +41,7 @@ public:
     std::vector<std::vector<uint8_t>> parseFrame(std::vector<uint8_t> &buffer);
 
     void printf_uint8(const std::vector<uint8_t> &data);
+    void printf_str(const std::vector<uint8_t> &data);
 
 private:
     void readLoop();

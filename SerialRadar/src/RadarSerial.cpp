@@ -148,7 +148,6 @@ void RadarSerial::readLoop()
                 }
                 else
                 {
-
                     if (dataQueue.size() >= MAX_QUEUE_SIZE)
                     {
                         spdlog::warn("RadarSerial 收到数据过多, 丢弃队首数据");
@@ -160,7 +159,7 @@ void RadarSerial::readLoop()
             }
         }
         buffer.resize(256);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         //  usleep(100 000);
     }
 }
@@ -296,6 +295,12 @@ void RadarSerial::printf_uint8(const std::vector<uint8_t> &data)
         // std::cout << std::endl;
         spdlog::debug("{}", hex_str);
     }
+}
+
+void RadarSerial::printf_str(const std::vector<uint8_t> &data)
+{
+    std::string text(data.begin(), data.end()); // 直接转换为字符串
+    spdlog::debug("printf_str: {}", text);
 }
 
 std::vector<std::vector<uint8_t>> RadarSerial::getAllData()

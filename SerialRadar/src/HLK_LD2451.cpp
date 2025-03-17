@@ -282,12 +282,7 @@ void HLK_LD2451::read_thread(int id, HLK_LD2451 *radar)
                 {
                     if (!data.empty())
                     {
-                        for (uint8_t byte : data)
-                        {
-                            std::cout << "[0x" << std::hex << (int)byte << "]";
-                        }
-                        std::cout << std::endl;
-
+                        radar->printf_uint8(data);
                         radar->parse_hlk_radar_data(radar->parseFrame(data));
                     }
                 }
