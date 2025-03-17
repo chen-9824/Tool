@@ -5,7 +5,6 @@
 using namespace std;
 
 string dev_name = "/dev/ttyCH341USB0";
-string test_name = "/dev/ttyUSB6";
 
 int main(int, char **)
 {
@@ -14,14 +13,9 @@ int main(int, char **)
     // spdlog::set_pattern("[%Y-%m-%d %H:%M:%S] [%^%l%$] [%s:%# %!()] %v");
 
     shared_ptr<HLK_LD2451>
-        radar = make_shared<HLK_LD2451>(test_name, B115200);
+        radar = make_shared<HLK_LD2451>(dev_name, B115200);
 
-    if (radar->init() != 0)
-    {
-        spdlog::error("{} 无法打开", dev_name);
-        return -1;
-    }
-
+    radar->init();
     radar->start_read_thread();
 
     std::string input;

@@ -1,10 +1,11 @@
 #include "RadarSerial.h"
 #include "../pch.h"
+#include <sys/stat.h>
 
 #define MAX_QUEUE_SIZE 1000 // 限制缓冲队列最大大小
 
 RadarSerial::RadarSerial(const std::string &port, int baudrate)
-    : port(port), baudrate(baudrate), fd(-1), running(false), pausing(false) {}
+    : port(port), baudrate(baudrate), fd(-1), reading(false), pausing(false), reconnect_enable(false) {}
 
 RadarSerial::~RadarSerial()
 {
@@ -34,7 +35,8 @@ bool RadarSerial::openSerial()
     fd = open(port.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
     if (fd == -1)
     {
-        std::cerr << "无法打开串口: " << strerror(errno) << std::endl;
+        // std::cerr << "无法打开串口: " << strerror(errno) << std::endl;
+        spdlog::error("雷达串口 {} 无法打开: {}", port, strerror(errno));
         return false;
     }
     struct termios options;
@@ -53,11 +55,14 @@ bool RadarSerial::openSerial()
     tcsetattr(fd, TCSANOW, &options);
 
     _available = true;
-    return true;
+
+    spdlog::info("雷达串口 {} 已打开", port);
+    return _available;
 }
 
 void RadarSerial::closeSerial()
 {
+    stopConnecting();
     _available = false;
     std::lock_guard<std::mutex> lock(ioMutex);
     if (fd != -1)
@@ -67,27 +72,66 @@ void RadarSerial::closeSerial()
     }
 }
 
+void RadarSerial::setReconnect(int dup_ms, bool start_read)
+{
+
+    // 避免多次启动
+    if (reconnect_enable.load())
+        return;
+
+    reconnect_enable.store(true);
+    reconnect_dup = dup_ms;
+    start_read_enable = start_read;
+
+    startConnecting();
+}
+
+void RadarSerial::startConnecting()
+{
+    connectThread = std::thread(&RadarSerial::connectLoop, this);
+}
+
+void RadarSerial::stopConnecting()
+{
+    if (reconnect_enable.load() == false)
+        return;
+
+    reconnect_enable.store(false);
+    if (connectThread.joinable())
+    {
+        connectThread.join();
+    }
+
+    connectThread = std::thread();
+}
+
 bool RadarSerial::is_available()
 {
     return _available;
 }
 
+bool RadarSerial::is_reading()
+{
+    return reading.load();
+}
+
 void RadarSerial::startReading()
 {
     // 避免多次启动
-    if (running.load())
+    if (reading.load())
         return;
-    running.store(true);
+    reading.store(true);
     readThread = std::thread(&RadarSerial::readLoop, this);
 }
 
 void RadarSerial::stopReading()
 {
-    running.store(false);
+    reading.store(false);
     if (readThread.joinable())
     {
         readThread.join();
     }
+    readThread = std::thread();
 }
 
 void RadarSerial::pauseReading() { pausing.store(true); }
@@ -96,26 +140,41 @@ void RadarSerial::resumeReading() { pausing.store(false); }
 
 void RadarSerial::readLoop()
 {
-    if (fd == -1)
+    if (fd == -1 || _available == false)
     {
         spdlog::error("Serial port not open");
         return;
     }
 
+    spdlog::info("Serial port readLoop start!");
+
     std::vector<uint8_t> buffer(256);
     std::vector<uint8_t> frameBuffer; // 存放拼接后的完整帧
 
-    while (running.load())
+    while (reading.load())
     {
         while (pausing)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            if (!running.load())
+            if (!reading.load())
                 break;
         }
 
-        std::lock_guard<std::mutex> lock(ioMutex);
-        int bytesRead = read(fd, buffer.data(), buffer.size());
+        if (!is_serial_existed())
+        {
+            reading.store(false);
+            _available = false;
+            close(fd);
+            fd = -1;
+            spdlog::error("Serial port disconnected, readLoop stop!");
+            break;
+        }
+
+        int bytesRead = 0;
+        {
+            std::lock_guard<std::mutex> lock(ioMutex);
+            bytesRead = read(fd, buffer.data(), buffer.size());
+        }
         if (bytesRead > 0)
         {
             buffer.resize(bytesRead);
@@ -144,7 +203,6 @@ void RadarSerial::readLoop()
                             frameBuffer.clear(); // 清空，准备接收下一帧
                         }
                     }
-                    // std::cout << std::endl;
                 }
                 else
                 {
@@ -154,19 +212,49 @@ void RadarSerial::readLoop()
                         dataQueue.pop_front(); // 丢弃旧数据
                     }
                     dataQueue.push_back(buffer);
-                    // frameBuffer.clear();
                 }
             }
         }
         buffer.resize(256);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        //  usleep(100 000);
+    }
+}
+
+bool RadarSerial::is_serial_existed()
+{
+    struct stat buffer;
+    return (stat(port.c_str(), &buffer) == 0) && S_ISCHR(buffer.st_mode);
+}
+
+void RadarSerial::connectLoop()
+{
+    while (reconnect_enable.load())
+    {
+        if (fd == -1 || _available == false)
+        {
+            spdlog::info("Serial port disconnected, reconnect...");
+            if (openSerial())
+            {
+                spdlog::info("Serial port reconnect successful!");
+                if (start_read_enable)
+                {
+                    stopReading();
+                    startReading();
+                }
+            }
+            else
+            {
+                spdlog::error("Serial port reconnect failed!");
+            }
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(reconnect_dup));
     }
 }
 
 bool RadarSerial::sendCommand(const std::vector<uint8_t> &cmd)
 {
-    if (fd == -1)
+    if (fd == -1 || _available == false)
     {
         spdlog::error("Serial port not open");
         return -1;

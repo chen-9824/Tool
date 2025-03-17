@@ -32,16 +32,7 @@ HLK_LD2451::~HLK_LD2451()
 
 int HLK_LD2451::init()
 {
-    //_radar = make_shared<RadarSerial>("/dev/ttyCH341USB0", B115200);
-
-    if (!openSerial())
-    {
-        spdlog::error("/dev/ttyCH341USB0 无法打开");
-        return -1;
-    }
-
-    spdlog::info("雷达串口已打开");
-
+    setReconnect(1000, true);
     set_frame_flag(frame_min_size, frame_header, frame_end);
     return 0;
 }
@@ -82,6 +73,7 @@ void HLK_LD2451::stop_read_thread()
         _read_t.join();
     }
     spdlog::info("读线程已停止");
+    _read_t = std::thread();
 }
 
 void HLK_LD2451::pause_read_thread()
@@ -242,11 +234,9 @@ void HLK_LD2451::read_target_cfg()
 
 void HLK_LD2451::read_thread(int id, HLK_LD2451 *radar)
 {
-    if (!radar || !radar->is_available())
-    {
-        spdlog::error("radar is not available, read_thread start failed");
+
+    if (!radar)
         return;
-    }
 #if READ_LOG_FIEL
     auto logger = spdlog::basic_logger_mt("thread_" + std::to_string(id), "/home/firefly/chenFan/Tool/SerialRadar/log/thread_" + std::to_string(id) + "_" + get_date() + ".log");
     logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [thread %t] [%l] %v");
@@ -258,10 +248,24 @@ void HLK_LD2451::read_thread(int id, HLK_LD2451 *radar)
 #else
         spdlog::info("线程 {}: 运行中...读取串口数据并打印: ", id);
 #endif
-        radar->startReading();
 
         while (radar->_reading.load())
         {
+
+            if (!radar->is_available())
+            {
+                spdlog::error("radar is not available, wait for reconncet");
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                continue;
+            }
+            else
+            {
+                /*if (!radar->is_reading())
+                {
+                    radar->startReading();
+                }*/
+            }
+
             while (radar->_pausing)
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));

@@ -9,6 +9,8 @@ if (Target_SYS STREQUAL "x86_64")
     message(STATUS "Building for x86_64")
 elseif (Target_SYS STREQUAL "aarch64")
     message(STATUS "Building for aarch64")
+    set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/spdlog/lib/cmake/spdlog/")
+    find_package(spdlog REQUIRED)
 elseif (Target_SYS STREQUAL "ARM32")
     message(STATUS "Building for ARM32")
     set(CMAKE_C_COMPILER /home/cfan/Desktop/RV1126_RV1109_SDK_2.1.0/prebuilts/gcc/linux-x86/arm/gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabihf/bin/arm-linux-gnueabihf-gcc)
@@ -20,18 +22,26 @@ endif()
 
 
 
-#set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/spdlog/lib/cmake/spdlog/")
-#find_package(spdlog REQUIRED)
+
 
 include_directories(${CMAKE_SOURCE_DIR}/spdlog/include)
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
 add_executable(RadarSerial LDIR05.cpp ${CMAKE_SOURCE_DIR}/src/RadarSerial.cpp)
 target_precompile_headers(RadarSerial PRIVATE pch.h)
-#target_link_libraries(RadarSerial  -lpthread spdlog::spdlog)
+
+if (Target_SYS STREQUAL "aarch64")
+target_link_libraries(RadarSerial  -lpthread spdlog::spdlog)
+else()
+endif()
+
 target_link_libraries(RadarSerial  -lpthread )
 
 add_executable(HLK_LD2451 main.cpp ${CMAKE_SOURCE_DIR}/src/HLK_LD2451.cpp ${CMAKE_SOURCE_DIR}/src/RadarSerial.cpp)
 target_precompile_headers(HLK_LD2451 PRIVATE pch.h)
-#target_link_libraries(HLK_LD2451  -lpthread spdlog::spdlog)
+
+if (Target_SYS STREQUAL "aarch64")
+target_link_libraries(HLK_LD2451  -lpthread spdlog::spdlog)
+else()
 target_link_libraries(HLK_LD2451  -lpthread)
+endif()

@@ -18,10 +18,12 @@ public:
     bool openSerial();
     void closeSerial();
 
-    bool is_available();
+    void setReconnect(int dup_ms, bool start_read = false);
 
-    void
-    set_frame_flag(uint8_t frame_start_flag, uint8_t frame_end_flag);
+    bool is_available();
+    bool is_reading();
+
+    void set_frame_flag(uint8_t frame_start_flag, uint8_t frame_end_flag);
     void set_frame_flag(int frame_min_size, std::vector<uint8_t> frame_header, std::vector<uint8_t> frame_tail);
 
     void startReading();
@@ -45,6 +47,10 @@ public:
 
 private:
     void readLoop();
+    void startConnecting();
+    void stopConnecting();
+    void connectLoop();
+    bool is_serial_existed();
 
 protected:
 private:
@@ -52,12 +58,18 @@ private:
     int fd;
     std::string port;
     int baudrate;
-    std::atomic<bool> running;
+    std::atomic<bool> reading;
     std::atomic<bool> pausing;
+
     std::thread readThread;
     std::mutex ioMutex;
     std::mutex dataMutex;
     std::deque<std::vector<uint8_t>> dataQueue;
+
+    std::thread connectThread;
+    std::atomic<bool> reconnect_enable;
+    int reconnect_dup;      // ms
+    bool start_read_enable; // 重连成功之后是否启动读线程
 
     bool _complete_frame_enable = false; // 是否拼为完整一帧存储
     uint8_t _frame_start_flag = 'N';     // 帧起始字符
