@@ -19,7 +19,7 @@ int main()
     cam.read(frame);
     printf("camera frame size:%d,%d. channels: %d. type:%d.\n", frame.cols, frame.rows, frame.channels(), frame.type());
 
-    VideoRenderer player(1280, 720);
+    VideoRenderer player(frame.cols, frame.rows);
 
     while (true)
     {
