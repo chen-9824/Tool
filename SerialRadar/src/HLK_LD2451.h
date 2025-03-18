@@ -10,8 +10,8 @@ class HLK_LD2451 : public RadarSerial
 public:
     struct target_info
     {
-        int angle;
-        int distance;  // m
+        int angle;     // 角度
+        int distance;  // 米
         int direction; // 1:靠近 0:远离
         int speed;     // km/h
         int SNR;       // 信噪比

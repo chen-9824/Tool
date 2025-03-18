@@ -1,6 +1,8 @@
 #include "HLK_LD2451.h"
 #include "../pch.h"
 
+#define MAX_QUEUE_SIZE 1000 // 限制缓冲队列最大大小
+
 #define READ_LOG_FIEL 0 // 是否将读数据线程打印写入到日志文件，1写入，0打印到控制台
 
 using namespace std;
@@ -336,6 +338,13 @@ void HLK_LD2451::parse_hlk_radar_data(const std::vector<std::vector<uint8_t>> &d
 
                 spdlog::debug("第{}个目标:", i + 1);
                 print_target_info(info);
+
+                if (dataQueue.size() >= MAX_QUEUE_SIZE)
+                {
+                    spdlog::warn("RadarSerial 收到数据过多, 丢弃队首数据");
+                    dataQueue.pop_front(); // 丢弃旧数据
+                }
+                dataQueue.push_back(info);
             }
             spdlog::debug("**********************************");
         }

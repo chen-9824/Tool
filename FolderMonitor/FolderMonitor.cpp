@@ -33,6 +33,14 @@ void FolderMonitor::stop()
   }
 }
 
+void FolderMonitor::set_multiple_directories(const std::string &rootPath, const std::string &detectPath, const std::vector<std::string> &other_floder)
+{
+  _multi_floder_enable = true;
+  _rootPath = rootPath;
+  _detectPath = detectPath;
+  _other_floder = other_floder;
+}
+
 void FolderMonitor::monitor()
 {
   while (running)
@@ -71,7 +79,12 @@ void FolderMonitor::monitor()
 uintmax_t FolderMonitor::getFolderSize()
 {
   uintmax_t totalSize = 0;
-  for (const auto &entry : fs::recursive_directory_iterator(folderPath))
+  std::string path = folderPath;
+  if (_multi_floder_enable)
+  {
+    path = _rootPath;
+  }
+  for (const auto &entry : fs::recursive_directory_iterator(path))
   {
     if (fs::is_regular_file(entry.path()))
     {
@@ -88,7 +101,13 @@ void FolderMonitor::deleteOldFiles()
 
   try
   {
-    for (const auto &entry : fs::directory_iterator(folderPath))
+    std::string detectPath = folderPath;
+    if (_multi_floder_enable)
+    {
+      detectPath = _detectPath;
+    }
+
+    for (const auto &entry : fs::directory_iterator(detectPath))
     {
       if (fs::is_regular_file(entry.path()))
       {
@@ -112,7 +131,7 @@ void FolderMonitor::deleteOldFiles()
 
     char buffer[100];
 #if 0
-    spdlog::debug("检测目录: {}, 所有文件: ", folderPath);
+    spdlog::debug("检测目录: {}, 所有文件: ", detectPath);
     for (const auto &[path, modTime] : files)
     {
       std::tm *localTime = std::localtime(&modTime);
@@ -143,6 +162,15 @@ void FolderMonitor::deleteOldFiles()
         std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", localTime);
         spdlog::warn("删除 {}, {}", path.c_str(), buffer);
         fs::remove(path);
+        if (_multi_floder_enable)
+        {
+          for (auto other_path : _other_floder)
+          {
+            fs::path p1 = other_path / path.filename();
+            fs::remove(p1);
+            spdlog::warn("删除 {}, {}", p1.c_str(), buffer);
+          }
+        }
       }
       else
       {
