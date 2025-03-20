@@ -25,8 +25,7 @@ private:
     // Shader *m_shader;
     std::unique_ptr<Shader> m_shader;
 
-    unsigned int m_VBO,
-        m_VAO, m_EBO;
+    unsigned int m_VBO, m_VAO, m_EBO;
     unsigned int m_texture1;
 
     void init();

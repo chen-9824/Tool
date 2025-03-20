@@ -22,14 +22,11 @@ FFmpegRTSPStreamer::~FFmpegRTSPStreamer() { cleanup(); }
 
 bool FFmpegRTSPStreamer::init()
 {
-  // av_register_all();
   avformat_network_init();
 #if 1
-  if (avformat_alloc_output_context2(&fmt_ctx, nullptr, "rtsp",
-                                     rtsp_url.c_str()) < 0)
+  if (avformat_alloc_output_context2(&fmt_ctx, nullptr, "rtsp", rtsp_url.c_str()) < 0)
 #else
-  if (avformat_alloc_output_context2(&fmt_ctx, nullptr, "mpegts",
-                                     rtsp_url.c_str()) < 0)
+  if (avformat_alloc_output_context2(&fmt_ctx, nullptr, "mpegts", rtsp_url.c_str()) < 0)
 #endif
   {
     std::cerr << "Could not allocate output context." << std::endl;
@@ -56,20 +53,25 @@ bool FFmpegRTSPStreamer::init()
     std::cerr << "Failed to allocate codec context." << std::endl;
     return false;
   }
-
-  codec_ctx->codec_id = codec->id;
-  codec_ctx->codec_type = AVMEDIA_TYPE_VIDEO;
   codec_ctx->width = width;
   codec_ctx->height = height;
   codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
-  // codec_ctx->pix_fmt = AV_PIX_FMT_YUYV422;
-  codec_ctx->time_base = {1, fps};
-  codec_ctx->gop_size = 12;
+  codec_ctx->time_base = {fps, 1};
+  codec_ctx->framerate = {1, fps};
 
-  codec_ctx->rc_buffer_size = 0;    // 清空编码缓冲区
-  codec_ctx->rc_max_rate = 2000000; // 最大码率2Mbps
-  codec_ctx->rc_min_rate = 1000000; // 最小码率1Mbps
-
+  codec_ctx->bit_rate = 8000000; // 码率
+  codec_ctx->rc_buffer_size = 16000000;
+  codec_ctx->rc_max_rate = 8000000;
+  codec_ctx->rc_min_rate = 4000000;
+  codec_ctx->gop_size = 50;
+  codec_ctx->max_b_frames = 0; // 禁用 B 帧（降低延迟）
+  codec_ctx->qmin = 18;
+  codec_ctx->qmax = 23;
+  av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0); // 编码速度优化
+  av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
+  av_opt_set(codec_ctx->priv_data, "profile", "main", 0);
+  av_opt_set(codec_ctx->priv_data, "crf", "20", 0); // 质量控制参数
+  // av_opt_set(fmt_ctx->priv_data, "rtsp_transport", "tcp", 0); // 使用TCP传输
   if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
   {
     codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -83,19 +85,16 @@ bool FFmpegRTSPStreamer::init()
 
   // 将编码器上下文的参数复制到流的编码参数中
   avcodec_parameters_from_context(video_stream->codecpar, codec_ctx);
-
-  // rtsp不需要调用，调用会出错
-  /*int ret = avio_open(&fmt_ctx->pb, rtsp_url.c_str(), AVIO_FLAG_WRITE);
-  if (ret < 0) {
-    char errbuf[AV_ERROR_MAX_STRING_SIZE];
-    av_strerror(ret, errbuf, sizeof(errbuf));
-    std::cerr << "Could not open RTSP stream: " << errbuf << std::endl;
-    return false;
-  }*/
-
-  av_opt_set(fmt_ctx->priv_data, "rtsp_transport", "tcp", 0); // 使用TCP传输
-  // av_opt_set(fmt_ctx->priv_data, "rtsp_transport", "udp", 0);
-  av_opt_set(fmt_ctx->priv_data, "max_delay", "100000", 0); // 设置最大延迟为 100ms
+  video_stream->time_base = codec_ctx->time_base;
+  if (!(fmt_ctx->oformat->flags & AVFMT_NOFILE))
+  {
+    int ret = avio_open(&fmt_ctx->pb, rtsp_url.c_str(), AVIO_FLAG_WRITE);
+    if (ret < 0)
+    {
+      printf("打开输出 URL 失败, ret:%d\n", ret);
+      return -1;
+    }
+  }
 
   if (avformat_write_header(fmt_ctx, nullptr) < 0)
   {
@@ -111,6 +110,17 @@ bool FFmpegRTSPStreamer::init()
   if (av_frame_get_buffer(av_frame, 32) < 0)
   {
     std::cerr << "Could not allocate frame buffer." << std::endl;
+    return false;
+  }
+
+  av_filter_frame = av_frame_alloc();
+  av_filter_frame->format = codec_ctx->pix_fmt;
+  av_filter_frame->width = width;
+  av_filter_frame->height = height;
+
+  if (av_frame_get_buffer(av_filter_frame, 32) < 0)
+  {
+    std::cerr << "Could not allocate av_filter_frame buffer." << std::endl;
     return false;
   }
 
@@ -131,99 +141,6 @@ bool FFmpegRTSPStreamer::init()
   return true;
 }
 
-bool FFmpegRTSPStreamer::push_frame(const YUVFrame &frame)
-{
-#if DEBUG
-  auto start = std::chrono::high_resolution_clock::now();
-  auto end = std::chrono::high_resolution_clock::now();
-#endif
-
-  if (!av_frame || !frame.data)
-  {
-    std::cerr << "Invalid frame or uninitialized streamer." << std::endl;
-    return false;
-  }
-
-  memcpy(av_frame->data[0], frame.data, width * height); // Y plane
-  memcpy(av_frame->data[1], frame.data + width * height,
-         width * height / 4); // U plane
-  memcpy(av_frame->data[2], frame.data + width * height * 5 / 4,
-         width * height / 4); // V plane
-
-#if DEBUG
-  end = std::chrono::high_resolution_clock::now();
-  std::cout << "memcpy一帧耗时为:"
-            << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                     start)
-                   .count()
-            << "ms.\n";
-#endif
-
-  // 设置PTS，确保与时间基匹配
-  av_frame->pts = av_rescale_q(frame_count++, (AVRational){1, fps},
-                               video_stream->time_base);
-
-  if (avcodec_send_frame(codec_ctx, av_frame) < 0)
-  {
-    std::cerr << "Failed to send frame to "
-                 "encoder."
-              << std::endl;
-    return false;
-  }
-
-  AVPacket pkt;
-  av_init_packet(&pkt);
-  pkt.data = nullptr;
-  pkt.size = 0;
-
-  if (avcodec_receive_packet(codec_ctx, &pkt) == 0)
-  {
-#if DEBUG
-    end = std::chrono::high_resolution_clock::now();
-    std::cout << "编码一帧耗时为:"
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       start)
-                     .count()
-              << "ms.\n";
-#endif
-
-    pkt.stream_index = video_stream->index;
-
-    // 打印调试信息，检查PTS和DTS
-    /*std::cout << "frame_count:" << frame_count << " PTS: " << pkt.pts
-              << " DTS: " << pkt.dts << " size: " << pkt.size << std::endl;*/
-
-    if (av_interleaved_write_frame(fmt_ctx, &pkt) < 0)
-    {
-      std::cerr << "Failed to write frame. PTS: " << pkt.pts
-                << " DTS: " << pkt.dts << " size: " << pkt.size << std::endl;
-      av_packet_unref(&pkt);
-      return false;
-    }
-    av_packet_unref(&pkt);
-
-#if DEBUG
-    end = std::chrono::high_resolution_clock::now();
-    std::cout << "发送一帧耗时为:"
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       start)
-                     .count()
-              << "ms.\n";
-#endif
-  }
-
-#if DEBUG
-  end = std::chrono::high_resolution_clock::now();
-  std::cout << "frame_count:" << frame_count << ", 完整推送一帧耗时为:"
-            << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                     start)
-                   .count()
-            << "ms.\n";
-#endif
-
-  return true;
-}
-
 bool FFmpegRTSPStreamer::push_frame(unsigned char *frame)
 {
 #if DEBUG
@@ -237,11 +154,38 @@ bool FFmpegRTSPStreamer::push_frame(unsigned char *frame)
     return false;
   }
 
-  memcpy(av_frame->data[0], frame, width * height); // Y plane
-  memcpy(av_frame->data[1], frame + width * height,
-         width * height / 4); // U plane
-  memcpy(av_frame->data[2], frame + width * height * 5 / 4,
-         width * height / 4); // V plane
+  int ret = 0;
+  if (_filter_enable)
+  {
+    memcpy(av_filter_frame->data[0], frame, width * height); // Y plane
+    memcpy(av_filter_frame->data[1], frame + width * height,
+           width * height / 4); // U plane
+    memcpy(av_filter_frame->data[2], frame + width * height * 5 / 4,
+           width * height / 4); // V plane
+
+    ret = av_buffersrc_add_frame(buffersrc_ctx, av_filter_frame);
+    if (ret < 0)
+    {
+      print_error("Error while av_buffersrc_add_frame.", ret);
+      return false;
+    }
+
+    /* pull filtered pictures from the filtergraph */
+    ret = av_buffersink_get_frame(buffersink_ctx, av_frame);
+    if (ret < 0)
+    {
+      print_error("Error while av_buffersink_get_frame.", ret);
+      return false;
+    }
+  }
+  else
+  {
+    memcpy(av_frame->data[0], frame, width * height); // Y plane
+    memcpy(av_frame->data[1], frame + width * height,
+           width * height / 4); // U plane
+    memcpy(av_frame->data[2], frame + width * height * 5 / 4,
+           width * height / 4); // V plane
+  }
 
 #if DEBUG
   end = std::chrono::high_resolution_clock::now();
@@ -342,11 +286,29 @@ void FFmpegRTSPStreamer::cleanup()
     av_frame = nullptr;
   }
 
+  if (av_filter_frame)
+  {
+    av_frame_free(&av_filter_frame);
+    av_filter_frame = nullptr;
+  }
+
   if (sws_ctx_422_to_420)
   {
     sws_freeContext(sws_ctx_422_to_420);
     sws_ctx_422_to_420 = nullptr;
   }
+}
+
+void FFmpegRTSPStreamer::add_time()
+{
+  const char *filter_descr = "drawtext=fontfile=/home/cfan/Desktop/project/Tool/Tool/FfmpegRtspPusher/font/SourceHanSansCN-Normal.otf: "
+                             "text='%{localtime}': x=w-tw-10: y=10: fontcolor=white: fontsize=24: box=1: boxcolor=black@0.5: rate=1";
+  if (init_filters(filter_descr) != 0)
+  {
+    std::cerr << "init_filters failed" << std::endl;
+    return;
+  }
+  _filter_enable = true;
 }
 
 void FFmpegRTSPStreamer::YUV422ToYUV420p(const unsigned char *yuv422,
@@ -513,4 +475,78 @@ void FFmpegRTSPStreamer::ConvertYUYVToYUV420P(const unsigned char *yuyv,
       }
     }
   }
+}
+
+void FFmpegRTSPStreamer::print_error(const std::string &msg, int errnum)
+{
+
+  char errbuf[128] = {0};
+  av_strerror(errnum, errbuf, sizeof(errbuf));
+  std::cerr << msg << ": " << errbuf << std::endl;
+}
+
+int FFmpegRTSPStreamer::init_filters(const char *filters_descr)
+{
+  if (!codec_ctx)
+  {
+    std::cerr << "codec_ctx未初始化, 需要初始化之后调用 init_filters" << std::endl;
+    return -1;
+  }
+
+  char args[512];
+  int ret;
+  const AVFilter *buffersrc = avfilter_get_by_name("buffer");
+  const AVFilter *buffersink = avfilter_get_by_name("buffersink");
+  AVFilterInOut *outputs = avfilter_inout_alloc();
+  AVFilterInOut *inputs = avfilter_inout_alloc();
+  enum AVPixelFormat pix_fmts[] = {AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE};
+  AVBufferSinkParams *buffersink_params;
+
+  filter_graph = avfilter_graph_alloc();
+
+  /* buffer video source: the decoded frames from the decoder will be inserted here. */
+  snprintf(args, sizeof(args),
+           "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+           codec_ctx->width, codec_ctx->height, codec_ctx->pix_fmt,
+           codec_ctx->time_base.num, codec_ctx->time_base.den,
+           codec_ctx->sample_aspect_ratio.num, codec_ctx->sample_aspect_ratio.den);
+
+  ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in",
+                                     args, NULL, filter_graph);
+  if (ret < 0)
+  {
+    printf("Cannot create buffer source\n");
+    return ret;
+  }
+
+  /* buffer video sink: to terminate the filter chain. */
+  buffersink_params = av_buffersink_params_alloc();
+  buffersink_params->pixel_fmts = pix_fmts;
+  ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out",
+                                     NULL, buffersink_params, filter_graph);
+  av_free(buffersink_params);
+  if (ret < 0)
+  {
+    printf("Cannot create buffer sink\n");
+    return ret;
+  }
+
+  /* Endpoints for the filter graph. */
+  outputs->name = av_strdup("in");
+  outputs->filter_ctx = buffersrc_ctx;
+  outputs->pad_idx = 0;
+  outputs->next = NULL;
+
+  inputs->name = av_strdup("out");
+  inputs->filter_ctx = buffersink_ctx;
+  inputs->pad_idx = 0;
+  inputs->next = NULL;
+
+  if ((ret = avfilter_graph_parse_ptr(filter_graph, filters_descr,
+                                      &inputs, &outputs, NULL)) < 0)
+    return ret;
+
+  if ((ret = avfilter_graph_config(filter_graph, NULL)) < 0)
+    return ret;
+  return 0;
 }

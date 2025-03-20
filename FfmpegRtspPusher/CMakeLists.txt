@@ -6,9 +6,10 @@ find_package(OpenCV REQUIRED)
 
 # 包含OpenCV头文件
 include_directories(${OpenCV_INCLUDE_DIRS})
-LINK_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
-add_executable(push main.cpp FFmpegRTSPStreamer.cpp)
+add_executable(OpenCvUvcPusher OpenCvUvcPusher.cpp FFmpegRTSPStreamer.cpp)
+target_link_libraries(OpenCvUvcPusher ${OpenCV_LIBS} -lavcodec -lavformat -lavutil -lswresample -lswscale -lswscale -lavfilter)
 
 
-target_link_libraries(push ${OpenCV_LIBS} -lavcodec -lavformat -lavutil -lswresample -lswscale -lswscale -lavfilter)
+add_executable(FFmpegUvcPusher FFmpegUvcPusher.cpp)
+target_link_libraries(FFmpegUvcPusher  -lavcodec -lavformat -lavutil -lswresample -lswscale -lswscale -lavfilter -lavdevice)

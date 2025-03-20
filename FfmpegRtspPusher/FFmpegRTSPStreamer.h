@@ -10,6 +10,9 @@ extern "C"
 #include <libavutil/avutil.h>
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersrc.h>
+#include <libavfilter/buffersink.h>
 }
 
 #include <cstring>
@@ -29,9 +32,13 @@ public:
                      int fps);
   ~FFmpegRTSPStreamer();
   bool init();
-  bool push_frame(const YUVFrame &frame);
+
+  // 传入帧格式需为yuv420p
   bool push_frame(unsigned char *frame);
   void cleanup();
+
+  // 右上角添加时间
+  void add_time();
 
   void YUV422ToYUV420p(const unsigned char *yuv422, unsigned char *yuv420,
                        int width, int height);
@@ -46,6 +53,10 @@ public:
                             int width, int height);
 
 private:
+  void print_error(const std::string &msg, int errnum);
+  int init_filters(const char *filters_descr);
+
+private:
   std::string rtsp_url;
   int width;
   int height;
@@ -58,6 +69,12 @@ private:
   AVCodec *codec = nullptr;
   AVFrame *av_frame = nullptr;
   SwsContext *sws_ctx_422_to_420 = nullptr;
+
+  bool _filter_enable = false;
+  AVFilterContext *buffersink_ctx;
+  AVFilterContext *buffersrc_ctx;
+  AVFilterGraph *filter_graph;
+  AVFrame *av_filter_frame = nullptr;
 };
 
 #endif

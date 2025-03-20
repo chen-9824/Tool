@@ -2,11 +2,14 @@
 
 #include "Shader.h"
 
+const char *vs_path = "../opengl/shader/player.vs";
+const char *fs_path = "../opengl/shader/player.fs";
+
 VideoRenderer::VideoRenderer(int width, int height) : m_width(width), m_height(height)
 {
     init();
 
-    m_shader = std::make_unique<Shader>("../shader/player.vs", "../shader/player.fs");
+    m_shader = std::make_unique<Shader>(vs_path, fs_path);
 
     createVertex();
 
