@@ -107,6 +107,8 @@ bool FFmpegRTSPStreamer::init()
   av_frame->width = width;
   av_frame->height = height;
 
+  // 使用该接口分配到的数据空间，是可复用的，即内部有引用计数（reference）
+  // 注意部分函数会获取引用所有权或者隐藏解引用
   if (av_frame_get_buffer(av_frame, 32) < 0)
   {
     std::cerr << "Could not allocate frame buffer." << std::endl;
@@ -118,7 +120,9 @@ bool FFmpegRTSPStreamer::init()
   av_filter_frame->width = width;
   av_filter_frame->height = height;
 
-  if (av_frame_get_buffer(av_filter_frame, 32) < 0)
+  if (av_image_alloc(av_filter_frame->data, av_filter_frame->linesize,
+                     codec_ctx->width, codec_ctx->height,
+                     codec_ctx->pix_fmt, 32) < 0)
   {
     std::cerr << "Could not allocate av_filter_frame buffer." << std::endl;
     return false;
@@ -148,11 +152,13 @@ bool FFmpegRTSPStreamer::push_frame(unsigned char *frame)
   auto end = std::chrono::high_resolution_clock::now();
 #endif
 
-  if (!av_frame || !frame)
+  if (!av_frame || !frame || !av_filter_frame)
   {
     std::cerr << "Invalid frame or uninitialized streamer." << std::endl;
     return false;
   }
+
+  // SaveYUV420pToFile(frame, width, height, "test.yuv");
 
   int ret = 0;
   if (_filter_enable)
@@ -162,6 +168,10 @@ bool FFmpegRTSPStreamer::push_frame(unsigned char *frame)
            width * height / 4); // U plane
     memcpy(av_filter_frame->data[2], frame + width * height * 5 / 4,
            width * height / 4); // V plane
+
+    /*av_image_fill_arrays(
+        av_filter_frame->data, av_filter_frame->linesize,
+        frame, codec_ctx->pix_fmt, codec_ctx->width, codec_ctx->height, 32);*/
 
     ret = av_buffersrc_add_frame(buffersrc_ctx, av_filter_frame);
     if (ret < 0)

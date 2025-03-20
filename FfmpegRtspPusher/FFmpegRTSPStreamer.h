@@ -12,6 +12,7 @@ extern "C"
 #include <libswscale/swscale.h>
 #include <libavfilter/avfilter.h>
 #include <libavfilter/buffersrc.h>
+#include <libavutil/imgutils.h>
 #include <libavfilter/buffersink.h>
 }
 

@@ -284,6 +284,8 @@ static int init_output()
     yuyv_frame->format = decoder_ctx->pix_fmt;
     yuyv_frame->width = decoder_ctx->width;
     yuyv_frame->height = decoder_ctx->height;
+    // 使用该接口分配到的数据空间，是可复用的，即内部有引用计数（reference）
+    // 注意部分函数会获取引用所有权或者隐藏解引用
     av_frame_get_buffer(yuyv_frame, 32);
 
     yuv420p_filter_frame->format = encoder_ctx->pix_fmt;
