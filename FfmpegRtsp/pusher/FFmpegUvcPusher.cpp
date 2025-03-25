@@ -405,6 +405,7 @@ int main()
     av_init_packet(&packet);
     packet.data = nullptr;
     packet.size = 0;
+    bool _add_time = 1;
     while ((ret = av_read_frame(input_ctx, &packet)) >= 0)
     {
         if (packet.stream_index == video_stream_index)
@@ -414,27 +415,44 @@ int main()
                 yuyv_frame->data, yuyv_frame->linesize,
                 packet.data, AV_PIX_FMT_YUYV422, decoder_ctx->width, decoder_ctx->height, 1);
 
-            // 像素格式转换（转换到 YUV420P）
-            sws_scale(sws_ctx, yuyv_frame->data, yuyv_frame->linesize, 0,
-                      decoder_ctx->height, yuv420p_filter_frame->data, yuv420p_filter_frame->linesize);
-
-            yuv420p_filter_frame->pts = packet.pts;
-
-            if (av_buffersrc_add_frame(buffersrc_ctx, yuv420p_filter_frame) < 0)
+            if (_add_time)
             {
-                printf("Error while add frame.\n");
-                break;
+                // 像素格式转换（转换到 YUV420P）
+                sws_scale(sws_ctx, yuyv_frame->data, yuyv_frame->linesize, 0,
+                          decoder_ctx->height, yuv420p_filter_frame->data, yuv420p_filter_frame->linesize);
+
+                yuv420p_filter_frame->pts = packet.pts;
+
+                if (av_buffersrc_add_frame(buffersrc_ctx, yuv420p_filter_frame) < 0)
+                {
+                    printf("Error while add frame.\n");
+                    break;
+                }
+
+                /* pull filtered pictures from the filtergraph */
+                // 注意释放
+                ret = av_buffersink_get_frame(buffersink_ctx, yuv420p_frame);
+                if (ret < 0)
+                {
+                    printf("Error av_buffersink_get_frame\n");
+                    break;
+                }
+            }
+            else
+            {
+                // 像素格式转换（转换到 YUV420P）
+                sws_scale(sws_ctx, yuyv_frame->data, yuyv_frame->linesize, 0,
+                          decoder_ctx->height, yuv420p_frame->data, yuv420p_frame->linesize);
+
+                yuv420p_frame->pts = packet.pts;
             }
 
-            /* pull filtered pictures from the filtergraph */
-            ret = av_buffersink_get_frame(buffersink_ctx, yuv420p_frame);
-            if (ret < 0)
-                break;
-
             ret = avcodec_send_frame(encoder_ctx, yuv420p_frame);
+
             if (ret < 0)
             {
                 print_error("发送帧到编码器失败", ret);
+                av_frame_unref(yuv420p_frame);
                 break;
             }
             AVPacket enc_pkt;
@@ -454,6 +472,8 @@ int main()
                 }
                 av_packet_unref(&enc_pkt);
             }
+
+            av_frame_unref(yuv420p_frame);
         }
         av_packet_unref(&packet);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
