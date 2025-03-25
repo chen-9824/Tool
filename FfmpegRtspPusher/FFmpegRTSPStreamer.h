@@ -36,6 +36,7 @@ public:
 
   // 传入帧格式需为yuv420p
   bool push_frame(unsigned char *frame);
+  bool push_frame(const YUVFrame &frame);
   void cleanup();
 
   // 右上角添加时间

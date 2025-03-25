@@ -271,6 +271,11 @@ bool FFmpegRTSPStreamer::push_frame(unsigned char *frame)
   return true;
 }
 
+bool FFmpegRTSPStreamer::push_frame(const YUVFrame &frame)
+{
+  return push_frame(frame.data);
+}
+
 void FFmpegRTSPStreamer::cleanup()
 {
   if (fmt_ctx)
