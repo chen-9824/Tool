@@ -15,7 +15,7 @@ include_directories(${CMAKE_SOURCE_DIR}/opengl/)
 
 add_executable(receiver main.cpp RTSPStream.cpp ${CMAKE_CURRENT_SOURCE_DIR}/opengl/Shader.cpp ${CMAKE_CURRENT_SOURCE_DIR}/opengl/VideoRenderer.cpp)
 target_link_libraries(receiver pthread  
--lavcodec -lavformat -lavutil -lswresample -lswscale -lswscale -lavfilter -lavdevice
+-lavcodec -lavformat -lavutil -lswresample -lswscale -lswscale -lavfilter 
  ${OpenCV_LIBS} 
 -lglfw glad -ldl)
 
