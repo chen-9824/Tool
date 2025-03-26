@@ -9,7 +9,12 @@ set(CMAKE_SYSTEM_PROCESSOR aarch64)
 set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
 set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
 
+# 查找OpenCV库
+find_package(OpenCV REQUIRED)
 
+# 包含OpenCV头文件
+include_directories(${OpenCV_INCLUDE_DIRS})
+LINK_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
 include_directories(${CMAKE_SOURCE_DIR}/rknn_yolov5/include)
 
@@ -21,5 +26,5 @@ link_directories(${LIB_DIR})
 
 add_executable(rknn main.cpp rknn.cpp ${SOURCES})
 
-target_link_libraries(rknn -lrknnrt -lrga -lturbojpeg)
+target_link_libraries(rknn -lrknnrt -lrga -lturbojpeg ${OpenCV_LIBS}) 
 
