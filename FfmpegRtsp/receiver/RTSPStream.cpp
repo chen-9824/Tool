@@ -50,10 +50,31 @@ void RTSPStream::streamLoop()
 
     avformat_network_init();
 
-    if (avformat_open_input(&formatCtx, url_.c_str(), nullptr, nullptr) != 0)
+    // 3.设置打开媒体文件的相关参数
+    AVDictionary *options = nullptr;
+    av_dict_set(&options, "buffer_size", "6M", 0); // 设置 buffer_size 为 2MB
+    // 以tcp方式打开,如果以udp方式打开将tcp替换为udp
+    av_dict_set(&options, "rtsp_transport", "tcp", 0);
+    // 设置超时断开连接时间,单位微秒,3000000表示3秒
+    av_dict_set(&options, "stimeout", "1000000", 0);
+    // 设置最大时延,单位微秒,1000000表示1秒
+    av_dict_set(&options, "max_delay", "1000000", 0);
+    // 自动开启线程数
+    av_dict_set(&options, "threads", "auto", 0);
+    // 设置分析持续时间
+    // av_dict_set(&options, "analyzeduration", "1000000", 0);
+    // 设置探测大小
+    av_dict_set(&options, "probesize", "5000000", 0);
+
+    if (avformat_open_input(&formatCtx, url_.c_str(), nullptr, &options) != 0)
     {
         std::cerr << "Failed to open RTSP stream: " << url_ << std::endl;
         return;
+    }
+
+    if (options != NULL)
+    {
+        av_dict_free(&options);
     }
 
     if (avformat_find_stream_info(formatCtx, nullptr) < 0)
