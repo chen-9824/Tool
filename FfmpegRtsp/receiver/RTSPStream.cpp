@@ -2,15 +2,19 @@
 
 #include "VideoRenderer.h"
 
+#include <memory>
 #include <opencv2/opencv.hpp>
+
+std::unique_ptr<VideoRenderer> opengl_player;
 
 const size_t MAX_QUEUE_SIZE = 30; // 限制队列大小
 enum player_type
 {
+    none, // 不播放
     opencv,
     opengl
 };
-player_type _player_type = player_type::opengl;
+player_type _player_type = player_type::none;
 
 RTSPStream::RTSPStream(const std::string &url) : url_(url),
                                                  running_(false)
@@ -148,7 +152,10 @@ void RTSPStream::streamLoop()
         return;
     }
 
-    VideoRenderer player(codecCtx->width, codecCtx->height);
+    if (_player_type == player_type::opengl)
+    {
+        opengl_player = std::make_unique<VideoRenderer>(codecCtx->width, codecCtx->height);
+    }
     cv::Mat rgbFrame;
 
     while (running_ && av_read_frame(formatCtx, packet) >= 0)
@@ -172,8 +179,8 @@ void RTSPStream::streamLoop()
                     else if (_player_type == player_type::opengl)
                     {
                         cv::cvtColor(img, rgbFrame, cv::COLOR_BGR2RGB);
-                        player.updateFrame(rgbFrame.data);
-                        player.render();
+                        opengl_player->updateFrame(rgbFrame.data);
+                        opengl_player->render();
                     }
                 }
             }
