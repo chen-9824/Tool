@@ -16,7 +16,8 @@ extern "C"
 #include <libavfilter/avfilter.h>
 #include <libavfilter/buffersrc.h>
 #include <libavfilter/buffersink.h>
-
+#include <libavutil/mathematics.h>
+#include <libavutil/time.h>
 #include <libavutil/avutil.h>
 }
 
@@ -204,10 +205,10 @@ static int init_output()
     encoder_ctx->time_base = rtsp_time_base;
     encoder_ctx->framerate = rtsp_fps;
 
-    encoder_ctx->bit_rate = 8000000; // 码率
-    encoder_ctx->rc_buffer_size = 16000000;
-    encoder_ctx->rc_max_rate = 8000000;
-    encoder_ctx->rc_min_rate = 4000000;
+    encoder_ctx->bit_rate = 98 * 1000 * 1000; // 码率
+                                              // encoder_ctx->rc_buffer_size = 16000000;
+                                              // encoder_ctx->rc_max_rate = 8000000;
+                                              // encoder_ctx->rc_min_rate = 4000000;
     encoder_ctx->gop_size = 50;
     encoder_ctx->max_b_frames = 0; // 禁用 B 帧（降低延迟）
     encoder_ctx->qmin = 18;
@@ -254,6 +255,8 @@ static int init_output()
         free_all_res();
         return -1;
     }
+
+    av_dump_format(output_ctx, 0, output_url, 1);
 
     // 5. 创建像素格式转换上下文（若摄像头输出格式与编码器要求不一致）
     sws_ctx = sws_getContext(decoder_ctx->width, decoder_ctx->height, decoder_ctx->pix_fmt,
@@ -405,11 +408,63 @@ int main()
     av_init_packet(&packet);
     packet.data = nullptr;
     packet.size = 0;
-    bool _add_time = 1;
+    bool _add_time = 0;
+
+    long long frame_index = 0;
+    int64_t start_time = 0;
+    start_time = av_gettime();
+    bool _first_start = true;
+
     while ((ret = av_read_frame(input_ctx, &packet)) >= 0)
     {
+
         if (packet.stream_index == video_stream_index)
         {
+
+#if 1
+            if (packet.pts == AV_NOPTS_VALUE)
+            {
+                // Write PTS
+                AVRational time_base1 = input_ctx->streams[video_stream_index]->time_base;
+                // Duration between 2 frames (us)
+                int64_t calc_duration = (double)AV_TIME_BASE / av_q2d(input_ctx->streams[video_stream_index]->r_frame_rate);
+                // Parameters
+                packet.pts = (double)(frame_index * calc_duration) / (double)(av_q2d(time_base1) * AV_TIME_BASE);
+                packet.dts = packet.pts;
+                packet.duration = (double)calc_duration / (double)(av_q2d(time_base1) * AV_TIME_BASE);
+            }
+
+            // Important:Delay
+            if (packet.stream_index == video_stream_index)
+            {
+                AVRational time_base = input_ctx->streams[video_stream_index]->time_base;
+                AVRational time_base_q = {1, AV_TIME_BASE};
+                int64_t pts_time = av_rescale_q(packet.dts, time_base, time_base_q);
+                int64_t now_time = av_gettime() - start_time;
+                if (_first_start)
+                {
+                    start_time = pts_time;
+                    now_time = start_time;
+                    _first_start = false;
+                }
+
+                if (pts_time > now_time)
+                {
+                    std::cout << "pts_time: " << pts_time << ", now_time:" << now_time << std::endl;
+                    av_usleep(pts_time - now_time);
+                }
+            }
+
+            AVStream *in_stream, *out_stream;
+            in_stream = input_ctx->streams[packet.stream_index];
+            out_stream = output_ctx->streams[packet.stream_index];
+            /* copy packet */
+            // Convert PTS/DTS
+            /* packet.pts = av_rescale_q_rnd(packet.pts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
+             packet.dts = av_rescale_q_rnd(packet.dts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
+             packet.duration = av_rescale_q(packet.duration, in_stream->time_base, out_stream->time_base);
+             packet.pos = -1;*/
+#endif
             // 将 AVPacket 转为 AVFrame
             av_image_fill_arrays(
                 yuyv_frame->data, yuyv_frame->linesize,
@@ -443,16 +498,18 @@ int main()
                 // 像素格式转换（转换到 YUV420P）
                 sws_scale(sws_ctx, yuyv_frame->data, yuyv_frame->linesize, 0,
                           decoder_ctx->height, yuv420p_frame->data, yuv420p_frame->linesize);
-
-                yuv420p_frame->pts = packet.pts;
             }
 
+            yuv420p_frame->pts = packet.pts;
             ret = avcodec_send_frame(encoder_ctx, yuv420p_frame);
 
             if (ret < 0)
             {
                 print_error("发送帧到编码器失败", ret);
-                av_frame_unref(yuv420p_frame);
+                if (_add_time)
+                {
+                    av_frame_unref(yuv420p_frame);
+                }
                 break;
             }
             AVPacket enc_pkt;
@@ -461,8 +518,13 @@ int main()
             enc_pkt.size = 0;
             while ((ret = avcodec_receive_packet(encoder_ctx, &enc_pkt)) >= 0)
             {
+
+                // printf("Send %8d video frames to output URL\n", frame_index);
+                frame_index++;
+
                 enc_pkt.stream_index = out_stream->index;
                 av_packet_rescale_ts(&enc_pkt, encoder_ctx->time_base, out_stream->time_base);
+
                 ret = av_interleaved_write_frame(output_ctx, &enc_pkt);
                 if (ret < 0)
                 {
@@ -473,10 +535,13 @@ int main()
                 av_packet_unref(&enc_pkt);
             }
 
-            av_frame_unref(yuv420p_frame);
+            if (_add_time)
+            {
+                av_frame_unref(yuv420p_frame);
+            }
         }
         av_packet_unref(&packet);
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     // 7. 刷新编码器，写入尾部信息

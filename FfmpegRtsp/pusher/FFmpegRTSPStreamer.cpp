@@ -59,18 +59,18 @@ bool FFmpegRTSPStreamer::init()
   codec_ctx->time_base = {fps, 1};
   codec_ctx->framerate = {1, fps};
 
-  /*codec_ctx->bit_rate = 8000000; // 码率
-  codec_ctx->rc_buffer_size = 16000000;
-  codec_ctx->rc_max_rate = 8000000;
-  codec_ctx->rc_min_rate = 4000000;
+  codec_ctx->bit_rate = 8 * 1000 * 1000; // 码率
+  codec_ctx->rc_buffer_size = 8 * 1000 * 1000;
+  codec_ctx->rc_max_rate = 4 * 1000 * 1000;
+  codec_ctx->rc_min_rate = 2 * 1000 * 1000;
   codec_ctx->gop_size = 50;
   codec_ctx->max_b_frames = 0; // 禁用 B 帧（降低延迟）
-  codec_ctx->qmin = 18;
-  codec_ctx->qmax = 23;
+  codec_ctx->qmin = 23;
+  codec_ctx->qmax = 28;
   av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0); // 编码速度优化
   av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
   av_opt_set(codec_ctx->priv_data, "profile", "main", 0);
-  av_opt_set(codec_ctx->priv_data, "crf", "20", 0); // 质量控制参数*/
+  av_opt_set(codec_ctx->priv_data, "crf", "20", 0); // 质量控制参数
   // av_opt_set(fmt_ctx->priv_data, "rtsp_transport", "tcp", 0); // 使用TCP传输
   if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
   {
@@ -215,6 +215,10 @@ bool FFmpegRTSPStreamer::push_frame(unsigned char *frame)
     std::cerr << "Failed to send frame to "
                  "encoder."
               << std::endl;
+    if (_filter_enable)
+    {
+      av_frame_unref(av_frame);
+    }
     return false;
   }
 
@@ -245,9 +249,18 @@ bool FFmpegRTSPStreamer::push_frame(unsigned char *frame)
       std::cerr << "Failed to write frame. PTS: " << pkt.pts
                 << " DTS: " << pkt.dts << " size: " << pkt.size << std::endl;
       av_packet_unref(&pkt);
+      if (_filter_enable)
+      {
+        av_frame_unref(av_frame);
+      }
       return false;
     }
     av_packet_unref(&pkt);
+
+    if (_filter_enable)
+    {
+      av_frame_unref(av_frame);
+    }
 
 #if DEBUG
     end = std::chrono::high_resolution_clock::now();

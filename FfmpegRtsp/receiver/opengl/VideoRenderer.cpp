@@ -22,6 +22,7 @@ VideoRenderer::~VideoRenderer()
     glDeleteVertexArrays(1, &m_VAO);
     glDeleteBuffers(1, &m_VBO);
     glDeleteBuffers(1, &m_EBO);
+
     // 释放窗口资源
     glfwDestroyWindow(window);
     // 终止 GLFW
