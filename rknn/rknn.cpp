@@ -49,7 +49,18 @@ void Rknn::deinit()
     }
 }
 
-void Rknn::start_inference(const Image &image)
+int Rknn::get_input_arrt(ModeAttr &attr)
+{
+    if (!_is_init)
+        return -1;
+
+    attr.width = _rknn_app_ctx.model_width;
+    attr.height = _rknn_app_ctx.model_height;
+    attr.channel = _rknn_app_ctx.model_channel;
+    return 0;
+}
+
+void Rknn::inference(const Image &image)
 {
     std::cout << "start_inference" << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
@@ -69,6 +80,10 @@ void Rknn::start_inference(const Image &image)
         std::cout << "inference_yolov5_model fail! res = " << res << std::endl;
         return;
     }
+
+    auto inference = std::chrono::high_resolution_clock::now();
+    auto inference_duration = std::chrono::duration_cast<std::chrono::milliseconds>(inference - start);
+    std::cout << "inference time taken: " << inference_duration.count() << " milliseconds" << std::endl;
 
     // 画框和概率
     char text[256];
@@ -92,14 +107,14 @@ void Rknn::start_inference(const Image &image)
     }
 
 #if 1
-    if (res == 1)
+    if (od_results.count > 0)
     {
-        write_image("test.jpg", &src_image);
+        write_image("rknn_out.jpg", &src_image);
     }
 #endif
 
     auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    std::cout << "Time taken: " << duration.count() << " milliseconds" << std::endl;
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - inference);
+    std::cout << "Total time taken: " << duration.count() << " milliseconds" << std::endl;
     printf("=================================================================\n");
 }

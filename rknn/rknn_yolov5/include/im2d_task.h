@@ -21,7 +21,7 @@
 #include "im2d_type.h"
 
 #ifdef __cplusplus
-
+#include <cstddef>
 /**
  * Create an rga job
  *
@@ -280,7 +280,7 @@ IM_API IM_STATUS imcolorkeyTask(im_job_handle_t job_handle,
  * @returns success or else negative error code.
  */
 IM_API IM_STATUS imosdTask(im_job_handle_t job_handle,
-                           const rga_buffer_t osd,const rga_buffer_t bg_image,
+                           const rga_buffer_t osd, const rga_buffer_t bg_image,
                            const im_rect osd_rect, im_osd_t *osd_config);
 
 /**

@@ -4,6 +4,8 @@
 #include "yolov5.h"
 
 #include <string>
+#include <atomic>
+#include <mutex>
 
 class Rknn
 {
@@ -31,6 +33,12 @@ public:
         uint height;
         unsigned char *data;
     };
+    struct ModeAttr
+    {
+        uint width;
+        uint height;
+        uint channel;
+    };
 
 public:
     explicit Rknn(const std::string &model_path, const std::string &model_labels_path, const uint obj_class_num, const uint box_prob_size);
@@ -38,7 +46,15 @@ public:
     int init();
     void deinit();
 
-    void start_inference(const Image &image);
+    int get_input_arrt(ModeAttr &attr);
+
+    void inference(const Image &image);
+
+    void start_inference_loop();
+    void add_inference_img();
+
+private:
+    void inference_loop();
 
 private:
     bool _is_init;
@@ -48,8 +64,6 @@ private:
     std::string _model_labels_path;
     uint _obj_class_num;
     uint _prob_box_size;
-
-    std::string storage_img_path;
 };
 
 #endif // RKNN_H
