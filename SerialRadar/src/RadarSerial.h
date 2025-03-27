@@ -34,6 +34,7 @@ public:
     bool sendCommand(const std::vector<uint8_t> &cmd);
     std::vector<std::vector<uint8_t>> getAllData();
     std::vector<uint8_t> getLatestData();
+    std::vector<uint8_t> getOldestData();
 
     /*
     裁剪buffer, 去掉frame_header 两字节帧长度 frame_tail 只保留帧内容返回
