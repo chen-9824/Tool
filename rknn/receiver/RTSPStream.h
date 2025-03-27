@@ -22,7 +22,7 @@ extern "C"
 class RTSPStream
 {
 public:
-    RTSPStream(const std::string &url);
+    RTSPStream(const std::string &url, int dst_width, int dst_height, AVPixelFormat dst_fmt);
     ~RTSPStream();
 
     bool start();
@@ -30,6 +30,10 @@ public:
 
 private:
     void streamLoop();
+
+    int _dst_width;
+    int _dst_height;
+    AVPixelFormat _dst_fmt;
 
     std::string url_;
     std::atomic<bool> running_;

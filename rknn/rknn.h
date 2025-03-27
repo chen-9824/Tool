@@ -6,7 +6,7 @@
 #include <string>
 #include <atomic>
 #include <mutex>
-
+#include <map>
 class Rknn
 {
 public:
@@ -48,7 +48,12 @@ public:
 
     int get_input_arrt(ModeAttr &attr);
 
-    void inference(const Image &image);
+    // 设置检测对象id及置信度
+    // 在推理得到的结果中判断是否存在待检测对象, 若存在且高于置信度, 推理函数返回 n, 表示推理结果存在 n 个待检测对象
+    void set_detect_targets(const std::map<int, float> &detect_targets);
+
+    // 返回值: -1 表示推理失败，0 表示推理成功且未检测到指定对象，其余值 n 表示推理结果存在 n 个待检测对象
+    int inference(const Image &image);
 
     void start_inference_loop();
     void add_inference_img();
@@ -64,6 +69,8 @@ private:
     std::string _model_labels_path;
     uint _obj_class_num;
     uint _prob_box_size;
+
+    std::map<int, float> _detect_targets;
 };
 
 #endif // RKNN_H

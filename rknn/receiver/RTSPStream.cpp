@@ -1,11 +1,8 @@
 #include "RTSPStream.h"
 
-#include "VideoRenderer.h"
-
 #include <memory>
-#include <opencv2/opencv.hpp>
 
-std::unique_ptr<VideoRenderer> opengl_player;
+#include "../rknn.h"
 
 const size_t MAX_QUEUE_SIZE = 30; // 限制队列大小
 enum player_type
@@ -16,8 +13,15 @@ enum player_type
 };
 player_type _player_type = player_type::none;
 
-RTSPStream::RTSPStream(const std::string &url) : url_(url),
-                                                 running_(false)
+std::string model_path = "../rknn/rknn_yolov5/model/rk3566/yolov5_3566.rknn";
+std::string model_label_path = "../rknn/rknn_yolov5/model/coco_80_labels_list.txt";
+int obj_class_num = 80;
+uint box_prob_size = obj_class_num + 5;
+
+std::string image_name = "../rknn/rknn_yolov5/model/bus.jpg";
+
+RTSPStream::RTSPStream(const std::string &url, int dst_width, int dst_height, AVPixelFormat dst_fmt)
+    : url_(url), running_(false), _dst_width(dst_width), _dst_height(dst_height), _dst_fmt(dst_fmt)
 {
 }
 
@@ -46,6 +50,9 @@ void RTSPStream::stop()
 
 void RTSPStream::streamLoop()
 {
+    Rknn rknn(model_path, model_label_path, obj_class_num, box_prob_size);
+    rknn.init();
+
     std::cout << "streamLoop start..." << std::endl;
     AVFormatContext *formatCtx = nullptr;
     AVCodecContext *codecCtx = nullptr;
@@ -132,16 +139,16 @@ void RTSPStream::streamLoop()
     int y_size = codecCtx->width * codecCtx->height;
     int uv_size = y_size / 4;
     uint8_t *yuv_buffer = (uint8_t *)av_malloc(y_size + 2 * uv_size);
-    uint8_t *bgr_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(AV_PIX_FMT_BGR24, codecCtx->width, codecCtx->height, 1));
+    uint8_t *bgr_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(_dst_fmt, _dst_width, _dst_width, 1));
 
     // 将数据绑定到 AVFrame
     av_image_fill_arrays(frame->data, frame->linesize, yuv_buffer, AV_PIX_FMT_YUV420P, codecCtx->width, codecCtx->height, 1);
-    av_image_fill_arrays(frame_bgr->data, frame_bgr->linesize, bgr_buffer, AV_PIX_FMT_BGR24, codecCtx->width, codecCtx->height, 1);
+    av_image_fill_arrays(frame_bgr->data, frame_bgr->linesize, bgr_buffer, _dst_fmt, _dst_width, _dst_height, 1);
 
     // 创建SwsContext用于格式转换
     SwsContext *swsCtx = sws_getContext(
         codecCtx->width, codecCtx->height, AV_PIX_FMT_YUV420P,
-        codecCtx->width, codecCtx->height, AV_PIX_FMT_BGR24,
+        _dst_width, _dst_height, _dst_fmt,
         SWS_BILINEAR, nullptr, nullptr, nullptr);
 
     if (!swsCtx)
@@ -151,12 +158,6 @@ void RTSPStream::streamLoop()
         avformat_close_input(&formatCtx);
         return;
     }
-
-    if (_player_type == player_type::opengl)
-    {
-        opengl_player = std::make_unique<VideoRenderer>(codecCtx->width, codecCtx->height);
-    }
-    cv::Mat rgbFrame;
 
     while (running_ && av_read_frame(formatCtx, packet) >= 0)
     {
@@ -169,19 +170,12 @@ void RTSPStream::streamLoop()
                     std::cout << "Frame received (" << frame->width << "x" << frame->height << ")" << " fmt: " << frame->format << std::endl;
                     // 将AVFrame转换为BGR格式
                     sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, frame_bgr->data, frame_bgr->linesize);
-                    cv::Mat img(frame->height, frame->width, CV_8UC3, frame_bgr->data[0], frame_bgr->linesize[0]);
 
-                    if (_player_type == player_type::opencv)
-                    {
-                        cv::imshow("test", img);
-                        cv::waitKey(1);
-                    }
-                    else if (_player_type == player_type::opengl)
-                    {
-                        cv::cvtColor(img, rgbFrame, cv::COLOR_BGR2RGB);
-                        opengl_player->updateFrame(rgbFrame.data);
-                        opengl_player->render();
-                    }
+                    Rknn::Image infer_img;
+                    infer_img.width = _dst_width;
+                    infer_img.height = _dst_height;
+                    infer_img.data = frame_bgr->data[0];
+                    rknn.inference(infer_img);
                 }
             }
         }

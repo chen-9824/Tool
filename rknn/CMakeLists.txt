@@ -27,6 +27,7 @@ LINK_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
 include_directories(${CMAKE_SOURCE_DIR}/rknn_yolov5/include)
 include_directories(${CMAKE_SOURCE_DIR}/rga/utils)
+include_directories(${CMAKE_SOURCE_DIR}/receiver)
 
 set(SRC_DIR "${CMAKE_SOURCE_DIR}/rknn_yolov5/3rdparty")
 file(GLOB SOURCES "${SRC_DIR}/*.cpp" "${SRC_DIR}/*.c" "${SRC_DIR}/*.cc")
@@ -37,4 +38,9 @@ link_directories(${LIB_DIR})
 add_executable(rknn main.cpp rknn.cpp  RkRga.cpp ${SOURCES})
 
 target_link_libraries(rknn -lrknnrt -lrga -lturbojpeg) 
+
+add_executable(rtsp_rknn rtsp_rknn.cpp rknn.cpp ${SOURCES} ${CMAKE_SOURCE_DIR}/receiver/RTSPStream.cpp)
+
+target_link_libraries(rtsp_rknn -lrknnrt -lrga -lturbojpeg pthread  
+-lavcodec -lavformat -lavutil -lswresample -lswscale -lswscale -lavfilter ) 
 

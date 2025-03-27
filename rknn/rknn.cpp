@@ -7,6 +7,7 @@
 #include <cstring>
 #include <chrono>
 #include <iostream>
+#include <cmath>
 
 Rknn::Rknn(const std::string &model_path, const std::string &model_labels_path, const uint obj_class_num, const uint box_prob_size)
     : _model_path(model_path), _model_labels_path(model_labels_path),
@@ -60,10 +61,17 @@ int Rknn::get_input_arrt(ModeAttr &attr)
     return 0;
 }
 
-void Rknn::inference(const Image &image)
+void Rknn::set_detect_targets(const std::map<int, float> &detect_targets)
+{
+    _detect_targets = detect_targets;
+}
+
+int Rknn::inference(const Image &image)
 {
     std::cout << "start_inference" << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
+
+    int detected = 0;
 
     image_buffer_t src_image;
     src_image.width = image.width;
@@ -78,7 +86,7 @@ void Rknn::inference(const Image &image)
     if (res != 0)
     {
         std::cout << "inference_yolov5_model fail! res = " << res << std::endl;
-        return;
+        return -1;
     }
 
     auto inference = std::chrono::high_resolution_clock::now();
@@ -94,12 +102,27 @@ void Rknn::inference(const Image &image)
                det_result->box.left, det_result->box.top,
                det_result->box.right, det_result->box.bottom,
                det_result->prop);
+
+        if (!_detect_targets.empty())
+        {
+            auto map_it = _detect_targets.cbegin();
+            while (map_it != _detect_targets.cend())
+            {
+                if (map_it->first == det_result->cls_id && det_result->prop > map_it->second)
+                {
+                    detected += 1;
+                }
+                ++map_it;
+            }
+        }
+
+#if 1
+
         int x1 = det_result->box.left;
         int y1 = det_result->box.top;
         int x2 = det_result->box.right;
         int y2 = det_result->box.bottom;
 
-#if 1
         draw_rectangle(&src_image, x1, y1, x2 - x1, y2 - y1, COLOR_BLUE, 3);
         sprintf(text, "%s %.1f%%", coco_cls_to_name(_obj_class_num, det_result->cls_id), det_result->prop * 100);
         draw_text(&src_image, text, x1, y1 - 20, COLOR_RED, 10);
@@ -117,4 +140,5 @@ void Rknn::inference(const Image &image)
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - inference);
     std::cout << "Total time taken: " << duration.count() << " milliseconds" << std::endl;
     printf("=================================================================\n");
+    return detected;
 }
