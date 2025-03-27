@@ -279,6 +279,18 @@ std::vector<uint8_t> RadarSerial::getLatestData()
     std::lock_guard<std::mutex> dataLock(dataMutex);
     if (!dataQueue.empty())
     {
+        std::vector<uint8_t> data = dataQueue.back();
+        dataQueue.pop_back();
+        return data;
+    }
+    return {};
+}
+
+std::vector<uint8_t> RadarSerial::getOlestData()
+{
+    std::lock_guard<std::mutex> dataLock(dataMutex);
+    if (!dataQueue.empty())
+    {
         std::vector<uint8_t> data = dataQueue.front();
         dataQueue.pop_front();
         return data;
