@@ -154,7 +154,7 @@ std::vector<uint8_t> HLK_LD2451::send_cmd(const std::vector<uint8_t> &cmd_key, c
         while (true)
         {
             spdlog::debug("获取下发命令回复...");
-            std::vector<uint8_t> allData = getLatestData();
+            std::vector<uint8_t> allData = getOlestData();
             if (!allData.empty())
             {
 
