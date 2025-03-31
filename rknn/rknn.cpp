@@ -15,6 +15,11 @@ Rknn::Rknn(const std::string &model_path, const std::string &model_labels_path, 
 {
 }
 
+Rknn::~Rknn()
+{
+    deinit();
+}
+
 int Rknn::init()
 {
     int ret = 0;

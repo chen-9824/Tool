@@ -42,6 +42,7 @@ public:
 
 public:
     explicit Rknn(const std::string &model_path, const std::string &model_labels_path, const uint obj_class_num, const uint box_prob_size);
+    ~Rknn();
 
     int init();
     void deinit();
