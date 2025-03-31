@@ -155,7 +155,8 @@ int release_yolov5_model(rknn_app_context_t *app_ctx)
     return 0;
 }
 
-int inference_yolov5_model(rknn_app_context_t *app_ctx, image_buffer_t *img, object_detect_result_list *od_results, int obj_class_num, int prop_box_size)
+int inference_yolov5_model(rknn_app_context_t *app_ctx, image_buffer_t *img, object_detect_result_list *od_results,
+                           int obj_class_num, int prop_box_size, bool use_rga)
 {
     int ret;
     image_buffer_t dst_img;
@@ -181,7 +182,7 @@ int inference_yolov5_model(rknn_app_context_t *app_ctx, image_buffer_t *img, obj
     dst_img.width = app_ctx->model_width;
     dst_img.height = app_ctx->model_height;
     dst_img.format = IMAGE_FORMAT_RGB888;
-    //dst_img.format = IMAGE_FORMAT_RGBA8888;
+    // dst_img.format = IMAGE_FORMAT_RGBA8888;
     dst_img.size = get_image_size(&dst_img);
     dst_img.virt_addr = (unsigned char *)malloc(dst_img.size);
     if (dst_img.virt_addr == NULL)
@@ -191,7 +192,7 @@ int inference_yolov5_model(rknn_app_context_t *app_ctx, image_buffer_t *img, obj
     }
 
     // letterbox
-    ret = convert_image_with_letterbox(img, &dst_img, &letter_box, bg_color);
+    ret = convert_image_with_letterbox(img, &dst_img, &letter_box, bg_color, use_rga);
     if (ret < 0)
     {
         printf("convert_image_with_letterbox fail! ret=%d\n", ret);
@@ -213,7 +214,7 @@ int inference_yolov5_model(rknn_app_context_t *app_ctx, image_buffer_t *img, obj
     }
 
     // Run
-    //printf("rknn_run\n");
+    // printf("rknn_run\n");
     ret = rknn_run(app_ctx->rknn_ctx, nullptr);
     if (ret < 0)
     {

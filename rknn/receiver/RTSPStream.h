@@ -38,6 +38,8 @@ public:
 
     void get_latest_frame(AVFrame &frame);
 
+    void print_frame_timestamp(AVFrame *frame);
+
 private:
     int ffmpeg_rtsp_init();
     void ffmpeg_rtsp_deinit();

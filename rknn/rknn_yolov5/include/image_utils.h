@@ -45,7 +45,7 @@ int write_image(const char* path, const image_buffer_t* image);
  * @param color [in] Pading color if dst_box can not fill target image
  * @return int 
  */
-int convert_image(image_buffer_t* src_image, image_buffer_t* dst_image, image_rect_t* src_box, image_rect_t* dst_box, char color);
+int convert_image(image_buffer_t* src_image, image_buffer_t* dst_image, image_rect_t* src_box, image_rect_t* dst_box, char color, int use_rga);
 
 /**
  * @brief Convert image with letterbox
@@ -56,7 +56,7 @@ int convert_image(image_buffer_t* src_image, image_buffer_t* dst_image, image_re
  * @param color [in] Fill color on target image
  * @return int 
  */
-int convert_image_with_letterbox(image_buffer_t* src_image, image_buffer_t* dst_image, letterbox_t* letterbox, char color);
+int convert_image_with_letterbox(image_buffer_t* src_image, image_buffer_t* dst_image, letterbox_t* letterbox, char color, int use_rga);
 
 /**
  * @brief Get the image size

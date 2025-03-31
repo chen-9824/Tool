@@ -662,7 +662,7 @@ err:
     return ret;
 }
 
-int convert_image(image_buffer_t* src_img, image_buffer_t* dst_img, image_rect_t* src_box, image_rect_t* dst_box, char color)
+int convert_image(image_buffer_t* src_img, image_buffer_t* dst_img, image_rect_t* src_box, image_rect_t* dst_box, char color, int use_rga)
 {
     int ret;
  #if 0
@@ -678,15 +678,20 @@ int convert_image(image_buffer_t* src_img, image_buffer_t* dst_img, image_rect_t
     }
     printf("color=0x%x\n", color);
 #endif
+if(use_rga){
     ret = convert_image_rga(src_img, dst_img, src_box, dst_box, color);
     if (ret != 0) {
         printf("try convert image use cpu\n");
         ret = convert_image_cpu(src_img, dst_img, src_box, dst_box, color);
     }
+} else {
+    ret = convert_image_cpu(src_img, dst_img, src_box, dst_box, color);
+}
+
     return ret;
 }
 
-int convert_image_with_letterbox(image_buffer_t* src_image, image_buffer_t* dst_image, letterbox_t* letterbox, char color)
+int convert_image_with_letterbox(image_buffer_t* src_image, image_buffer_t* dst_image, letterbox_t* letterbox, char color, int use_rga)
 {
     int ret = 0;
     int allow_slight_change = 1;
@@ -777,6 +782,6 @@ int convert_image_with_letterbox(image_buffer_t* src_image, image_buffer_t* dst_
             return -1;
         }
     }
-    ret = convert_image(src_image, dst_image, &src_box, &dst_box, color);
+    ret = convert_image(src_image, dst_image, &src_box, &dst_box, color, use_rga);
     return ret;
 }

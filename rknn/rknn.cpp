@@ -71,7 +71,7 @@ void Rknn::set_detect_targets(const std::map<int, float> &detect_targets)
     _detect_targets = detect_targets;
 }
 
-int Rknn::inference(const Image &image)
+int Rknn::inference(const Image &image, bool use_rga)
 {
     std::cout << "start_inference" << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
@@ -87,7 +87,7 @@ int Rknn::inference(const Image &image)
 
     object_detect_result_list od_results;
 
-    int res = inference_yolov5_model(&_rknn_app_ctx, &src_image, &od_results, _obj_class_num, _prob_box_size);
+    int res = inference_yolov5_model(&_rknn_app_ctx, &src_image, &od_results, _obj_class_num, _prob_box_size, use_rga);
     if (res != 0)
     {
         std::cout << "inference_yolov5_model fail! res = " << res << std::endl;
@@ -142,7 +142,7 @@ int Rknn::inference(const Image &image)
 #endif
 
     auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - inference);
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::cout << "Total time taken: " << duration.count() << " milliseconds" << std::endl;
     printf("=================================================================\n");
     return detected;

@@ -61,7 +61,7 @@ void frame_loop()
     while (frame_loop_rinning)
     {
         stream->get_latest_frame(*latest_frame);
-#if 1
+#if 0
         cv::Mat img(latest_frame->height, latest_frame->width, CV_8UC3, latest_frame->data[0], latest_frame->linesize[0]);
         cv::imshow("test", img);
         cv::waitKey(1);
@@ -70,7 +70,7 @@ void frame_loop()
         infer_img.width = width;
         infer_img.height = height;
         infer_img.data = latest_frame->data[0];
-        rknn.inference(infer_img);
+        rknn.inference(infer_img, 0);
 #endif
     }
 

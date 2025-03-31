@@ -48,6 +48,39 @@ void RTSPStream::get_latest_frame(AVFrame &frame)
     av_frame_copy(&frame, latest_frame); // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
     lock.unlock();
     std::cout << "get_latest_frame success!" << std::endl;
+    print_frame_timestamp(latest_frame);
+}
+
+void RTSPStream::print_frame_timestamp(AVFrame *frame)
+{
+    if (!formatCtx || !frame)
+    {
+        std::cerr << "Invalid context or frame" << std::endl;
+        return;
+    }
+
+    if (frame->pts != AV_NOPTS_VALUE)
+    {
+        // 将帧的 PTS 转换为秒
+        AVRational timeBase = formatCtx->streams[videoStreamIndex]->time_base;
+        double timestamp = frame->pts * av_q2d(timeBase);
+
+        // 格式化输出为秒
+        std::cout << "Frame PTS: " << frame->pts
+                  << " | Time: " << timestamp << " seconds" << std::endl;
+
+        auto ms = static_cast<int64_t>(timestamp * 1000);
+        auto hours = (ms / (1000 * 60 * 60)) % 24;
+        auto minutes = (ms / (1000 * 60)) % 60;
+        auto seconds = (ms / 1000) % 60;
+        auto milliseconds = ms % 1000;
+
+        std::cout << "Time: " << hours << ":" << minutes << ":" << seconds << "." << milliseconds << std::endl;
+    }
+    else
+    {
+        std::cout << "No PTS available for this frame" << std::endl;
+    }
 }
 
 int RTSPStream::ffmpeg_rtsp_init()
@@ -212,6 +245,9 @@ void RTSPStream::streamLoop()
                         {
                             std::lock_guard<std::mutex> lock(frameQueueMutex);
                             av_frame_copy(latest_frame, frame_bgr); // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
+                            latest_frame->pts = frame->pts;
+                            // latest_frame->pkt_dts = frame->pkt_dts;
+                            print_frame_timestamp(frame);
                             frameQueueCond.notify_one();
                         }
                         else if (_player_type == player_type::opencv)
