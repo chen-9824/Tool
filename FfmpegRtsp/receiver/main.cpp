@@ -1,9 +1,10 @@
 #include <iostream>
 #include "RTSPStream.h"
 #include "VideoRenderer.h"
+#include <opencv2/opencv.hpp>
 
 void frame_loop();
-
+RTSPStream::player_type player_type = RTSPStream::player_type::none;
 std::unique_ptr<RTSPStream> stream;
 // std::string rtsp_url = "rtsp://192.168.51.166:5554/user=admin&password=&channel=1&stream=0.sdp?";
 std::string rtsp_url = "rtsp://192.168.147.128:8554/test";
@@ -13,8 +14,6 @@ std::thread stream_thread_;
 int main(int, char **)
 {
     std::cout << "Hello, from receiver!\n";
-
-    RTSPStream::player_type player_type = RTSPStream::player_type::opengl;
 
     switch (player_type)
     {
@@ -29,14 +28,14 @@ int main(int, char **)
     case RTSPStream::player_type::opengl:
     {
         stream = std::make_unique<RTSPStream>(rtsp_url, 640, 480, AV_PIX_FMT_RGB24);
-        stream->startPlayer(RTSPStream::player_type::opengl);
+        stream->startPlayer(player_type);
         break;
     }
 
     case RTSPStream::player_type::opencv:
     {
         stream = std::make_unique<RTSPStream>(rtsp_url, 640, 480, AV_PIX_FMT_BGR24);
-        stream->startPlayer(RTSPStream::player_type::opencv);
+        stream->startPlayer(player_type);
         break;
     }
 
@@ -73,7 +72,7 @@ void frame_loop()
     av_image_fill_arrays(latest_frame->data, latest_frame->linesize, lates_buffer, fmt, width, height, 1);
 
     stream = std::make_unique<RTSPStream>(rtsp_url, width, height, fmt);
-    stream->startPlayer(RTSPStream::player_type::opengl);
+    stream->startPlayer(player_type);
 
     std::unique_ptr<VideoRenderer> opengl_player;
     opengl_player = std::make_unique<VideoRenderer>(width, height);
@@ -83,6 +82,10 @@ void frame_loop()
         stream->get_latest_frame(*latest_frame);
         opengl_player->updateFrame(latest_frame->data[0]);
         opengl_player->render();
+
+        /*cv::Mat img(latest_frame->height, latest_frame->width, CV_8UC3, latest_frame->data[0], latest_frame->linesize[0]);
+        cv::imshow("test", img);
+        cv::waitKey(1);*/
     }
 
     av_frame_free(&latest_frame);

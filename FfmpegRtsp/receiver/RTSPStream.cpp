@@ -39,10 +39,17 @@ void RTSPStream::stop()
 
 void RTSPStream::get_latest_frame(AVFrame &frame)
 {
+    if (!frame.data[0])
+    {
+        std::cerr << "Error: destination frame is not properly allocated!" << std::endl;
+        return;
+    }
     std::unique_lock<std::mutex> lock(frameQueueMutex);
     frameQueueCond.wait(lock, [this]()
-                        { return !latest_frame; });
+                        { return latest_frame != nullptr; });
     av_frame_copy(&frame, latest_frame); // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
+    lock.unlock();
+    // std::cout << "get_latest_frame success!" << std::endl;
 }
 
 int RTSPStream::ffmpeg_rtsp_init()
@@ -198,7 +205,7 @@ void RTSPStream::streamLoop()
                 while (avcodec_receive_frame(codecCtx, frame) == 0)
                 {
                     // std::cout << "Frame received (" << frame->width << "x" << frame->height << ")" << " fmt: " << frame->format << std::endl;
-                    //  将AVFrame转换为BGR格式
+                    //   将AVFrame转换为BGR格式
                     int ret = sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, frame_bgr->data, frame_bgr->linesize);
                     if (ret <= 0)
                     {
