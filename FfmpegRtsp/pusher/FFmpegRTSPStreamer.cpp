@@ -67,11 +67,21 @@ bool FFmpegRTSPStreamer::init()
   codec_ctx->max_b_frames = 0; // 禁用 B 帧（降低延迟）
   codec_ctx->qmin = 23;
   codec_ctx->qmax = 28;
+
+  // 设置多线程编码
+  // codec_ctx->thread_count = 4;              // 使用 4 线程编码
+  // codec_ctx->thread_type = FF_THREAD_FRAME; // 按帧进行多线程编码
+
+  // 增大缓冲区
+  // av_opt_set(fmt_ctx->priv_data, "buffer_size", "512000", 0); // 缓冲区 512KB
+  // av_opt_set(fmt_ctx->priv_data, "max_delay", "100000", 0);   // 最大延迟 100ms
+  // av_opt_set(fmt_ctx->priv_data, "flush_packets", "1", 0);    // 定时刷新
+
   av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0); // 编码速度优化
   av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
   av_opt_set(codec_ctx->priv_data, "profile", "main", 0);
-  av_opt_set(codec_ctx->priv_data, "crf", "20", 0); // 质量控制参数
-  // av_opt_set(fmt_ctx->priv_data, "rtsp_transport", "tcp", 0); // 使用TCP传输
+  av_opt_set(codec_ctx->priv_data, "crf", "20", 0);           // 质量控制参数
+  av_opt_set(fmt_ctx->priv_data, "rtsp_transport", "tcp", 0); // 使用TCP传输
   if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
   {
     codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -163,15 +173,15 @@ bool FFmpegRTSPStreamer::push_frame(unsigned char *frame)
   int ret = 0;
   if (_filter_enable)
   {
-    memcpy(av_filter_frame->data[0], frame, width * height); // Y plane
+    /*memcpy(av_filter_frame->data[0], frame, width * height); // Y plane
     memcpy(av_filter_frame->data[1], frame + width * height,
            width * height / 4); // U plane
     memcpy(av_filter_frame->data[2], frame + width * height * 5 / 4,
-           width * height / 4); // V plane
+           width * height / 4); // V plane*/
 
-    /*av_image_fill_arrays(
+    av_image_fill_arrays(
         av_filter_frame->data, av_filter_frame->linesize,
-        frame, codec_ctx->pix_fmt, codec_ctx->width, codec_ctx->height, 32);*/
+        frame, codec_ctx->pix_fmt, codec_ctx->width, codec_ctx->height, 32);
 
     ret = av_buffersrc_add_frame(buffersrc_ctx, av_filter_frame);
     if (ret < 0)
@@ -190,11 +200,15 @@ bool FFmpegRTSPStreamer::push_frame(unsigned char *frame)
   }
   else
   {
-    memcpy(av_frame->data[0], frame, width * height); // Y plane
+    /*memcpy(av_frame->data[0], frame, width * height); // Y plane
     memcpy(av_frame->data[1], frame + width * height,
            width * height / 4); // U plane
     memcpy(av_frame->data[2], frame + width * height * 5 / 4,
-           width * height / 4); // V plane
+           width * height / 4); // V plane*/
+
+    av_image_fill_arrays(
+        av_frame->data, av_frame->linesize,
+        frame, codec_ctx->pix_fmt, codec_ctx->width, codec_ctx->height, 32);
   }
 
 #if DEBUG

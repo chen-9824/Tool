@@ -16,6 +16,7 @@ public:
     VideoRenderer(int width, int height);
     ~VideoRenderer();
 
+    // 传入帧数据格式为RGB24
     void updateFrame(const unsigned char *data);
     void render();
 

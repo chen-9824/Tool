@@ -2,8 +2,8 @@
 
 #include "Shader.h"
 
-const char *vs_path = "../opengl/shader/player.vs";
-const char *fs_path = "../opengl/shader/player.fs";
+const char *vs_path = "./shader/player.vs";
+const char *fs_path = "./shader/player.fs";
 
 VideoRenderer::VideoRenderer(int width, int height) : m_width(width), m_height(height)
 {
@@ -61,7 +61,10 @@ void VideoRenderer::render()
 
 void VideoRenderer::init()
 {
-    glfwInit();
+    if (glfwInit() == GLFW_FALSE)
+    {
+        std::cerr << "glfwInit error!" << std::endl;
+    }
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
