@@ -19,3 +19,6 @@ target_link_libraries(receiver pthread
  ${OpenCV_LIBS} 
 -lglfw glad -ldl)
 
+install(TARGETS receiver RUNTIME DESTINATION  ${CMAKE_SOURCE_DIR}/install/)
+install(DIRECTORY opengl/shader DESTINATION ${CMAKE_SOURCE_DIR}/install/)
+
