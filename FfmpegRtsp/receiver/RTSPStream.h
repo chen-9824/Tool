@@ -45,6 +45,8 @@ private:
     int ffmpeg_rtsp_init();
     void ffmpeg_rtsp_deinit();
     void streamLoop();
+    bool is_frame_outdated(AVFrame *frame);
+    bool is_pkt_outdated(AVPacket *packet);
 
 private:
     std::string url_;
