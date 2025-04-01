@@ -9,7 +9,8 @@ void frame_loop();
 
 std::unique_ptr<RTSPStream> stream;
 std::string rtsp_url = "rtsp://192.168.51.166:5554/user=admin&password=&channel=1&stream=0.sdp?";
-// std::string rtsp_url = "rtsp://192.168.147.128:8554/test";
+// std::string rtsp_url = "rtsp://admin:p@ssw0rd@192.168.63.65/h264/ch33/main/av_stream";
+//  std::string rtsp_url = "rtsp://192.168.147.128:8554/test";
 bool frame_loop_rinning = false;
 std::thread stream_thread_;
 
@@ -23,7 +24,10 @@ std::string image_name = "../rknn/rknn_yolov5/model/bus.jpg";
 int main()
 {
     frame_loop_rinning = true;
-    frame_loop();
+    // frame_loop();
+
+    stream = std::make_unique<RTSPStream>(rtsp_url, 640, 640, AV_PIX_FMT_RGB24);
+    stream->startPlayer(RTSPStream::player_type::opencv);
 
     std::cout << "Press Enter to stop..." << std::endl;
     std::cin.get();

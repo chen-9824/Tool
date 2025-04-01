@@ -18,6 +18,7 @@ extern "C"
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/time.h>
 }
 
 class RTSPStream
@@ -44,6 +45,8 @@ private:
     int ffmpeg_rtsp_init();
     void ffmpeg_rtsp_deinit();
     void streamLoop();
+    bool is_frame_outdated(AVFrame *frame);
+    bool is_pkt_outdated(AVPacket *packet);
 
 private:
     std::string url_;
@@ -68,6 +71,8 @@ private:
     std::queue<AVFrame *> frameQueue;
     std::mutex frameQueueMutex;
     std::condition_variable frameQueueCond;
+
+    int64_t startTime;
 };
 
 #endif
