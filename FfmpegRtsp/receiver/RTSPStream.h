@@ -18,6 +18,7 @@ extern "C"
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/time.h>
 }
 
 class RTSPStream
@@ -37,6 +38,8 @@ public:
     void stop();
 
     void get_latest_frame(AVFrame &frame);
+
+    void print_frame_timestamp(AVFrame *frame);
 
 private:
     int ffmpeg_rtsp_init();

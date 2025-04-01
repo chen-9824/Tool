@@ -4,6 +4,11 @@
 
 #include <memory>
 #include <opencv2/opencv.hpp>
+#include <chrono>
+#include <iomanip>
+
+using Clock = std::chrono::high_resolution_clock;
+void print_elapsed_time(const Clock::time_point &start);
 
 const size_t MAX_QUEUE_SIZE = 30; // 限制队列大小
 
@@ -50,6 +55,38 @@ void RTSPStream::get_latest_frame(AVFrame &frame)
     av_frame_copy(&frame, latest_frame); // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
     lock.unlock();
     // std::cout << "get_latest_frame success!" << std::endl;
+}
+
+void RTSPStream::print_frame_timestamp(AVFrame *frame)
+{
+    if (!formatCtx || !frame)
+    {
+        std::cerr << "Invalid context or frame" << std::endl;
+        return;
+    }
+
+    if (frame->pts != AV_NOPTS_VALUE)
+    {
+        // 将帧的 PTS 转换为秒
+        AVRational timeBase = formatCtx->streams[videoStreamIndex]->time_base;
+        double timestamp = frame->pts * av_q2d(timeBase);
+
+        // 格式化输出为秒
+        std::cout << " Frame PTS: " << frame->pts
+                  << " | Time: " << timestamp << " seconds" << std::endl;
+
+        auto ms = static_cast<int64_t>(timestamp * 1000);
+        auto hours = (ms / (1000 * 60 * 60)) % 24;
+        auto minutes = (ms / (1000 * 60)) % 60;
+        auto seconds = (ms / 1000) % 60;
+        auto milliseconds = ms % 1000;
+
+        std::cout << " Time: " << hours << ":" << minutes << ":" << seconds << "." << milliseconds << std::endl;
+    }
+    else
+    {
+        std::cout << "No PTS available for this frame" << std::endl;
+    }
 }
 
 int RTSPStream::ffmpeg_rtsp_init()
@@ -195,7 +232,8 @@ void RTSPStream::streamLoop()
     {
         opengl_player = std::make_unique<VideoRenderer>(_dst_width, _dst_height);
     }
-
+    auto start_time = Clock::now();
+    int64_t startTime = av_gettime();
     while (running_ && av_read_frame(formatCtx, packet) >= 0)
     {
         if (packet->stream_index == videoStreamIndex)
@@ -224,6 +262,9 @@ void RTSPStream::streamLoop()
                         }
                         else if (_player_type == player_type::opencv)
                         {
+                            print_frame_timestamp(frame);
+                            print_elapsed_time(start_time);
+                            std::cout << "=====================================" << std::endl;
                             cv::Mat img(frame_bgr->height, frame_bgr->width, CV_8UC3, frame_bgr->data[0], frame_bgr->linesize[0]);
                             cv::imshow("test", img);
                             cv::waitKey(1);
@@ -238,7 +279,38 @@ void RTSPStream::streamLoop()
             }
         }
         av_packet_unref(packet);
+
+        // 延时(不然文件会立即全部播放完)
+        // 定义时间基为微秒（AV_TIME_BASE）
+        AVRational timeBase = {1, AV_TIME_BASE};
+        // 将当前帧的时间戳（dts）从输入流的时间基转换为微秒时间基
+        int64_t ptsTime = av_rescale_q(packet->dts, formatCtx->streams[videoStreamIndex]->time_base, timeBase);
+        // 获取当前时间并减去播放开始时间，得到相对于播放开始时间的当前时间
+        int64_t nowTime = av_gettime() - startTime;
+        // 如果当前帧的显示时间还没到，就等待（睡眠）一段时间
+        if (ptsTime > nowTime)
+        {
+            av_usleep(ptsTime - nowTime);
+        }
     }
     ffmpeg_rtsp_deinit();
     running_.store(false);
+}
+void print_elapsed_time(const Clock::time_point &start)
+{
+    auto end = Clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    // 将毫秒转为时分秒
+    auto hours = duration.count() / (1000 * 60 * 60);
+    auto minutes = (duration.count() / (1000 * 60)) % 60;
+    auto seconds = (duration.count() / 1000) % 60;
+    auto milliseconds = duration.count() % 1000;
+
+    std::cout << " Elapsed Time: "
+              << std::setw(2) << std::setfill('0') << hours << ":"
+              << std::setw(2) << std::setfill('0') << minutes << ":"
+              << std::setw(2) << std::setfill('0') << seconds << "."
+              << std::setw(3) << std::setfill('0') << milliseconds
+              << std::endl;
 }
