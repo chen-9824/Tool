@@ -7,7 +7,7 @@
 
 const size_t MAX_QUEUE_SIZE = 30; // 限制队列大小
 
-const int MAX_DELAY_MS = 900; // 最大延迟时间，单位毫秒
+const int MAX_DELAY_MS = 20; // 最大延迟时间，单位毫秒
 
 using Clock = std::chrono::high_resolution_clock;
 void print_elapsed_time(const Clock::time_point &start);
