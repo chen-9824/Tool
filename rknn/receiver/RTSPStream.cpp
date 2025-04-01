@@ -237,13 +237,14 @@ void RTSPStream::streamLoop()
 
     while (running_ && av_read_frame(formatCtx, packet) >= 0)
     {
-        if (is_pkt_outdated(packet))
+        // h265无法丢帧，丢帧会使得无法解码
+        /*if (is_pkt_outdated(packet))
         {
             // 丢弃过期帧
             av_packet_unref(packet);
             // avcodec_flush_buffers(codecCtx); // 清理解码器缓冲区，防止异常
             continue;
-        }
+        }*/
         auto total_start_time = Clock::now();
         if (packet->stream_index == videoStreamIndex)
         {
@@ -254,12 +255,12 @@ void RTSPStream::streamLoop()
                 {
                     std::cout << "解码耗时: " << std::endl;
                     print_elapsed_time(dec_start_time);
-                    /*if (is_frame_outdated(frame))
+                    if (is_frame_outdated(frame))
                     {
                         // 丢弃过期帧
                         av_frame_unref(frame);
                         continue;
-                    }*/
+                    }
 
                     std::cout << "Frame received (" << frame->width << "x" << frame->height << ")" << " fmt: " << frame->format << std::endl;
                     //   将AVFrame转换为BGR格式
@@ -343,8 +344,12 @@ bool RTSPStream::is_frame_outdated(AVFrame *frame)
     // 判断是否丢弃
     if (delay_ms > MAX_DELAY_MS)
     {
-        std::cerr << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;
-        return true; // 丢弃过期帧
+        if ((frame->key_frame) == 0) // 非关键帧
+        {
+            std::cerr
+                << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;
+            return true; // 丢弃过期帧
+        }
     }
     return false; // 正常处理
 }
