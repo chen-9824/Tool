@@ -42,5 +42,6 @@ target_link_libraries(rknn -lrknnrt -lrga -lturbojpeg)
 add_executable(rtsp_rknn rtsp_rknn.cpp rknn.cpp ${SOURCES} ${CMAKE_SOURCE_DIR}/receiver/RTSPStream.cpp)
 
 target_link_libraries(rtsp_rknn -lrknnrt -lrga -lturbojpeg pthread  
--lavcodec -lavformat -lavutil -lswresample -lswscale -lswscale -lavfilter ) 
+-lavcodec -lavformat -lavutil -lswresample -lswscale -lswscale -lavfilter 
+ ${OpenCV_LIBS} ) 
 

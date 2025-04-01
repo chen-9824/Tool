@@ -29,8 +29,7 @@ int main()
 
         RkRga rga;
 
-        RkRga::RgaImg in,
-            out;
+        RkRga::RgaImg in, out;
         in.width = width;
         in.height = height;
         in.data = img;
@@ -43,15 +42,17 @@ int main()
         out.data = nullptr;
         out.format = RK_FORMAT_RGB_888;
 
-        if (rga.rga_resize(in, out) != IM_STATUS_SUCCESS)
-        {
-            return -1;
-        }
-
         Rknn::Image infer_img;
         infer_img.width = out.width;
         infer_img.height = out.height;
+        /*if (rga.rga_resize(in, out) != IM_STATUS_SUCCESS)
+        {
+            return -1;
+        }
         infer_img.data = out.data;
+        */
+
+        infer_img.data = in.data;
         printf("img width = %d, img height = %d\n", infer_img.width, infer_img.height);
 
         rknn.inference(infer_img);

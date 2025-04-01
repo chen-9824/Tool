@@ -42,6 +42,7 @@ public:
 
 public:
     explicit Rknn(const std::string &model_path, const std::string &model_labels_path, const uint obj_class_num, const uint box_prob_size);
+    ~Rknn();
 
     int init();
     void deinit();
@@ -53,7 +54,7 @@ public:
     void set_detect_targets(const std::map<int, float> &detect_targets);
 
     // 返回值: -1 表示推理失败，0 表示推理成功且未检测到指定对象，其余值 n 表示推理结果存在 n 个待检测对象
-    int inference(const Image &image);
+    int inference(const Image &image, bool use_rga = true);
 
     void start_inference_loop();
     void add_inference_img();
