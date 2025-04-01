@@ -24,11 +24,12 @@ std::string image_name = "../rknn/rknn_yolov5/model/bus.jpg";
 int main()
 {
     frame_loop_rinning = true;
-    // frame_loop();
-
+#if 1
+    frame_loop();
+#else
     stream = std::make_unique<RTSPStream>(rtsp_url, 640, 640, AV_PIX_FMT_RGB24);
     stream->startPlayer(RTSPStream::player_type::opencv);
-
+#endif
     std::cout << "Press Enter to stop..." << std::endl;
     std::cin.get();
 
