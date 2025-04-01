@@ -4,10 +4,10 @@
 #include <opencv2/opencv.hpp>
 
 void frame_loop();
-RTSPStream::player_type player_type = RTSPStream::player_type::none;
+RTSPStream::player_type player_type = RTSPStream::player_type::opencv;
 std::unique_ptr<RTSPStream> stream;
-// std::string rtsp_url = "rtsp://192.168.51.166:5554/user=admin&password=&channel=1&stream=0.sdp?";
-std::string rtsp_url = "rtsp://192.168.147.128:8554/test";
+std::string rtsp_url = "rtsp://192.168.51.166:5554/user=admin&password=&channel=1&stream=0.sdp?";
+// std::string rtsp_url = "rtsp://192.168.147.128:8554/test";
 bool frame_loop_rinning = false;
 std::thread stream_thread_;
 
