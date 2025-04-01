@@ -236,12 +236,27 @@ void RTSPStream::streamLoop()
     int64_t startTime = av_gettime();
     while (running_ && av_read_frame(formatCtx, packet) >= 0)
     {
+        // h265无法丢帧，丢帧会使得无法解码
+        /*if (is_pkt_outdated(packet))
+        {
+            // 丢弃过期帧
+            av_packet_unref(packet);
+            // avcodec_flush_buffers(codecCtx); // 清理解码器缓冲区，防止异常
+            continue;
+        }*/
         if (packet->stream_index == videoStreamIndex)
         {
             if (avcodec_send_packet(codecCtx, packet) == 0)
             {
                 while (avcodec_receive_frame(codecCtx, frame) == 0)
                 {
+                    if (is_frame_outdated(frame))
+                    {
+                        // 丢弃过期帧
+                        av_frame_unref(frame);
+                        continue;
+                    }
+
                     // std::cout << "Frame received (" << frame->width << "x" << frame->height << ")" << " fmt: " << frame->format << std::endl;
                     //   将AVFrame转换为BGR格式
                     int ret = sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, frame_bgr->data, frame_bgr->linesize);
@@ -313,4 +328,59 @@ void print_elapsed_time(const Clock::time_point &start)
               << std::setw(2) << std::setfill('0') << seconds << "."
               << std::setw(3) << std::setfill('0') << milliseconds
               << std::endl;
+}
+
+bool RTSPStream::is_frame_outdated(AVFrame *frame)
+{
+    if (frame->pts == AV_NOPTS_VALUE)
+    {
+        std::cout << "No PTS available for this frame" << std::endl;
+        return false;
+    }
+    AVRational timeBase = {1, AV_TIME_BASE};
+    int64_t ptsTime = av_rescale_q(packet->dts, formatCtx->streams[videoStreamIndex]->time_base, timeBase);
+
+    int64_t nowTime = av_gettime() - startTime;
+
+    std::cout << "frame_time: " << ptsTime << ", nowTime:" << nowTime << std::endl;
+
+    // 计算延迟
+    int64_t delay_ms = (nowTime - ptsTime) / 1000;
+
+    // 判断是否丢弃
+    if (delay_ms > MAX_DELAY_MS)
+    {
+        if ((frame->key_frame) == 0) // 非关键帧
+        {
+            std::cerr
+                << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;
+            return true; // 丢弃过期帧
+        }
+    }
+    return false; // 正常处理
+}
+bool RTSPStream::is_pkt_outdated(AVPacket *packet)
+{
+    if (!packet || packet->size <= 0)
+    {
+        return false; // 无效包不丢弃
+    }
+    // 定义时间基为微秒（AV_TIME_BASE）
+    AVRational timeBase = {1, AV_TIME_BASE};
+    // 将当前帧的时间戳（dts）从输入流的时间基转换为微秒时间基
+    int64_t ptsTime = av_rescale_q(packet->dts, formatCtx->streams[videoStreamIndex]->time_base, timeBase);
+    // 获取当前时间并减去播放开始时间，得到相对于播放开始时间的当前时间
+    int64_t nowTime = av_gettime() - startTime;
+    // 如果当前帧的显示时间已过，抛弃
+    int64_t delay_ms = (nowTime - ptsTime) / 1000;
+    if (delay_ms > MAX_DELAY_MS)
+    {
+        // 检查是否是关键帧
+        if ((packet->flags & AV_PKT_FLAG_KEY) == 0) // 非关键帧
+        {
+            std::cerr << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;
+            return true; // 丢弃过期帧
+        }
+    }
+    return false; // 正常处理
 }
