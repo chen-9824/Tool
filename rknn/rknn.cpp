@@ -9,6 +9,8 @@
 #include <iostream>
 #include <cmath>
 
+#include "spdlog/spdlog.h"
+
 Rknn::Rknn(const std::string &model_path, const std::string &model_labels_path, const uint obj_class_num, const uint box_prob_size)
     : _model_path(model_path), _model_labels_path(model_labels_path),
       _obj_class_num(obj_class_num), _prob_box_size(box_prob_size), _is_init(false)
@@ -31,12 +33,14 @@ int Rknn::init()
     ret = init_yolov5_model(_model_path.c_str(), &_rknn_app_ctx);
     if (ret != 0)
     {
-        printf("init_yolov5_model fail! ret=%d model_path=%s\n", ret, _model_path.c_str());
+        // printf("init_yolov5_model fail! ret=%d model_path=%s\n", ret, _model_path.c_str());
+        spdlog::error("init_yolov5_model fail! ret={} model_path={}", ret, _model_path.c_str());
         return ret;
     }
 
     _is_init = true;
-    printf("init_yolov5_model success! ret=%d model_path=%s\n", ret, _model_path.c_str());
+    // printf("init_yolov5_model success! ret=%d model_path=%s\n", ret, _model_path.c_str());
+    spdlog::info("init_yolov5_model success! ret={} model_path={}", ret, _model_path.c_str());
     return ret;
 }
 
@@ -48,10 +52,12 @@ void Rknn::deinit()
     if (ret != 0)
     {
         printf("release_yolov5_model fail! ret=%d\n", ret);
+        spdlog::error("release_yolov5_model fail! ret=={}", ret);
     }
     else
     {
         printf("release_yolov5_model success! ret=%d\n", ret);
+        spdlog::info("release_yolov5_model success! ret=={}", ret);
     }
 }
 
@@ -73,7 +79,7 @@ void Rknn::set_detect_targets(const std::map<int, float> &detect_targets)
 
 int Rknn::inference(const Image &image, bool use_rga)
 {
-    std::cout << "start_inference" << std::endl;
+    // std::cout << "start_inference" << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
     int detected = 0;
@@ -94,19 +100,19 @@ int Rknn::inference(const Image &image, bool use_rga)
         return -1;
     }
 
-    auto inference = std::chrono::high_resolution_clock::now();
+    /*auto inference = std::chrono::high_resolution_clock::now();
     auto inference_duration = std::chrono::duration_cast<std::chrono::milliseconds>(inference - start);
-    std::cout << "inference time taken: " << inference_duration.count() << " milliseconds" << std::endl;
+    std::cout << "inference time taken: " << inference_duration.count() << " milliseconds" << std::endl;*/
 
     // 画框和概率
     char text[256];
     for (int i = 0; i < od_results.count; i++)
     {
         object_detect_result *det_result = &(od_results.results[i]);
-        printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(_obj_class_num, det_result->cls_id),
+        /*printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(_obj_class_num, det_result->cls_id),
                det_result->box.left, det_result->box.top,
                det_result->box.right, det_result->box.bottom,
-               det_result->prop);
+               det_result->prop);*/
 
         if (!_detect_targets.empty())
         {
@@ -116,6 +122,10 @@ int Rknn::inference(const Image &image, bool use_rga)
                 if (map_it->first == det_result->cls_id && det_result->prop > map_it->second)
                 {
                     detected += 1;
+                    /*printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(_obj_class_num, det_result->cls_id),
+                           det_result->box.left, det_result->box.top,
+                           det_result->box.right, det_result->box.bottom,
+                           det_result->prop);*/
                 }
                 ++map_it;
             }
@@ -135,15 +145,24 @@ int Rknn::inference(const Image &image, bool use_rga)
     }
 
 #if 1
-    if (od_results.count > 0)
+    if (detected > 0)
+    {
+        spdlog::debug("save img");
+        write_image("rknn_out.jpg", &src_image);
+        // printf("*******************************************************************\n");
+    }
+#endif
+
+#if 0
+    // if (od_results.count > 0)
     {
         write_image("rknn_out.jpg", &src_image);
     }
 #endif
 
-    auto end = std::chrono::high_resolution_clock::now();
+    /*auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     std::cout << "Total time taken: " << duration.count() << " milliseconds" << std::endl;
-    printf("=================================================================\n");
+    printf("=================================================================\n");*/
     return detected;
 }

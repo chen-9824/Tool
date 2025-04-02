@@ -11,6 +11,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <deque>
+#include <chrono>
+#include <iomanip>
 
 extern "C"
 {
@@ -38,8 +40,14 @@ public:
     void stop();
 
     void get_latest_frame(AVFrame &frame);
+    AVFrame *get_latest_frame();
 
     void print_frame_timestamp(AVFrame *frame);
+    void print_elapsed_time(const std::chrono::high_resolution_clock::time_point &start);
+    void print_elapsed_time();
+
+    std::string get_frame_timestamp(AVFrame *frame);
+    std::string get_elapsed_time();
 
 private:
     int ffmpeg_rtsp_init();
@@ -47,6 +55,8 @@ private:
     void streamLoop();
     bool is_frame_outdated(AVFrame *frame);
     bool is_pkt_outdated(AVPacket *packet);
+
+    void push_frame(AVFrame *frame);
 
 private:
     std::string url_;
@@ -73,6 +83,8 @@ private:
     std::condition_variable frameQueueCond;
 
     int64_t startTime;
+
+    int error_frame_count = 0;
 };
 
 #endif
