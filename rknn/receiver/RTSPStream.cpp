@@ -327,12 +327,12 @@ void RTSPStream::streamLoop()
                             }
                             else if (_player_type == player_type::opencv)
                             {
-                                print_frame_timestamp(frame);
-                                print_elapsed_time(start_time);
-                                std::cout << "=====================================" << std::endl;
-                                /*cv::Mat img(frame_bgr->height, frame_bgr->width, CV_8UC3, frame_bgr->data[0], frame_bgr->linesize[0]);
+                                spdlog::debug("frame timestamp: {}", get_frame_timestamp(frame_bgr));
+                                spdlog::debug("total elapsed time: {}", get_elapsed_time());
+                                spdlog::debug("=====================================");
+                                cv::Mat img(frame_bgr->height, frame_bgr->width, CV_8UC3, frame_bgr->data[0], frame_bgr->linesize[0]);
                                 cv::imshow("test", img);
-                                cv::waitKey(1);*/
+                                cv::waitKey(1);
                             }
                             else if (_player_type == player_type::opengl)
                             {
@@ -488,7 +488,7 @@ std::string RTSPStream::get_frame_timestamp(AVFrame *frame)
     std::string str;
     if (!formatCtx || !frame || frame->pts == AV_NOPTS_VALUE)
     {
-        std::cerr << "Invalid context or frame" << std::endl;
+        spdlog::error("Invalid context or frame");
         return str;
     }
 
