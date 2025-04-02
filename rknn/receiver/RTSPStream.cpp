@@ -181,7 +181,7 @@ int RTSPStream::ffmpeg_rtsp_init()
         return -1;
     }
 
-    av_dump_format(formatCtx, videoStreamIndex, nullptr, 0);
+    av_dump_format(formatCtx, videoStreamIndex, url_.c_str(), 0);
 
     packet = av_packet_alloc();
 
@@ -297,6 +297,7 @@ void RTSPStream::streamLoop()
                             std::cerr << "sws_scale failed!" << std::endl;
                             continue; // 不显示无效图像
                         }
+                        frame_bgr->pts = frame->pts;
                         /*std::cout << "转换耗时: " << std::endl;
                         print_elapsed_time(convert_start_time);
                         std::cout << "Frame convert (" << frame_bgr->width << "x" << frame_bgr->height << ")" << " fmt: " << frame_bgr->format << std::endl;*/
@@ -306,7 +307,7 @@ void RTSPStream::streamLoop()
                             if (_player_type == player_type::none)
                             {
                                 // print_frame_timestamp(frame);
-                                frame_bgr->pts = frame->pts;
+
                                 // spdlog::debug("frame timestamp: {}", get_frame_timestamp(frame_bgr));
 
                                 /*std::lock_guard<std::mutex> lock(frameQueueMutex);
@@ -397,7 +398,12 @@ bool RTSPStream::is_frame_outdated(AVFrame *frame)
         {
             /*std::cerr
                 << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;*/
+            spdlog::warn("Frame is outdated, {} ms → discarded", delay_ms);
             return true; // 丢弃过期帧
+        }
+        else
+        {
+            spdlog::warn("Frame is outdated, but it is key_frame, not discard!");
         }
     }
     return false; // 正常处理
@@ -421,8 +427,12 @@ bool RTSPStream::is_pkt_outdated(AVPacket *packet)
         // 检查是否是关键帧
         if ((packet->flags & AV_PKT_FLAG_KEY) == 0) // 非关键帧
         {
-            std::cerr << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;
+            spdlog::warn("packet is outdated, {} ms → discarded", delay_ms);
             return true; // 丢弃过期帧
+        }
+        else
+        {
+            spdlog::warn("packet is outdated, but it is key_frame, not discard!");
         }
     }
     return false; // 正常处理

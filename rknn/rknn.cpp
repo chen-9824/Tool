@@ -144,7 +144,7 @@ int Rknn::inference(const Image &image, bool use_rga)
 #endif
     }
 
-#if 1
+#if 0
     if (detected > 0)
     {
         spdlog::debug("save img");
