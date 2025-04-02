@@ -45,7 +45,7 @@ int main()
     spdlog::set_default_logger(logger);
 
     frame_loop_rinning = true;
-#if 1
+#if 0
     std::thread frame_loop_t(frame_loop);
     _store_start.store(false);
     std::thread store_t(start_store_client, store_server_ip, store_server_port);

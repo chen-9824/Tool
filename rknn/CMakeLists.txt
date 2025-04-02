@@ -6,6 +6,25 @@ project(rknn VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR aarch64)
 
+#set(Target_SYS "x86_64")
+set(Target_SYS "aarch64")
+#set(Target_SYS "ARM32")
+
+if (Target_SYS STREQUAL "x86_64")
+    message(STATUS "Building for x86_64")
+elseif (Target_SYS STREQUAL "aarch64")
+    message(STATUS "Building for aarch64")
+    set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/spdlog/lib/cmake/spdlog/")
+    find_package(spdlog REQUIRED)
+elseif (Target_SYS STREQUAL "ARM32")
+    message(STATUS "Building for ARM32")
+    set(CMAKE_C_COMPILER /home/cfan/Desktop/RV1126_RV1109_SDK_2.1.0/prebuilts/gcc/linux-x86/arm/gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabihf/bin/arm-linux-gnueabihf-gcc)
+    set(CMAKE_CXX_COMPILER /home/cfan/Desktop/RV1126_RV1109_SDK_2.1.0/prebuilts/gcc/linux-x86/arm/gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabihf/bin/arm-linux-gnueabihf-g++)
+    set(CMAKE_SYSROOT /home/cfan/Desktop/RV1126_RV1109_SDK_2.1.0/buildroot/output/rockchip_rv1126_rv1109/host/arm-buildroot-linux-gnueabihf/sysroot/)
+else()
+    message(STATUS "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+
 # 指定交叉编译工具链
 #set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
 #set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
@@ -47,5 +66,5 @@ target_include_directories(rtsp_rknn PRIVATE ${CMAKE_SOURCE_DIR}/MyTcpClient)
 
 target_link_libraries(rtsp_rknn -lrknnrt -lrga -lturbojpeg pthread  
 -lavcodec -lavformat -lavutil -lswresample -lswscale -lswscale -lavfilter 
- ${OpenCV_LIBS} ) 
+ ${OpenCV_LIBS} spdlog::spdlog) 
 
