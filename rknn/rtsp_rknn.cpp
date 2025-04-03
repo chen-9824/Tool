@@ -111,7 +111,8 @@ void frame_loop()
         infer_img.width = width;
         infer_img.height = height;
         infer_img.data = frame->data[0];
-        int num = rknn.inference(infer_img, 0);
+        // int num = rknn.inference(infer_img, 0);
+        int num = rknn.inference(infer_img);
 
 #if OPENCV_SHOW
         cv::Mat img(infer_img.height, infer_img.width, CV_8UC3, infer_img.data);
