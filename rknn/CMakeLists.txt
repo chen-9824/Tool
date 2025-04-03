@@ -79,3 +79,5 @@ install(DIRECTORY rknn_yolov5/model/ DESTINATION ${CMAKE_SOURCE_DIR}/install/mod
 install(DIRECTORY rknn_yolov5/lib/ DESTINATION ${CMAKE_SOURCE_DIR}/install/lib)
 install(FILES  config.ini DESTINATION ${CMAKE_SOURCE_DIR}/install/)
 
+set_target_properties(rtsp_rknn PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")#指定运行时动态库路径
+

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
+#include <csignal>
 
 #include "RTSPStream.h"
 #include "MyTcpClient.h"
@@ -12,9 +13,10 @@
 
 #define OPENCV_SHOW 1
 
-void frame_loop();
-void start_store_client(std::string ip, int port);
-void reda_cfg();
+static void frame_loop();
+static void start_store_client(std::string ip, int port);
+static void reda_cfg();
+static void handle_signal(int signal);
 
 std::unique_ptr<RTSPStream> stream;
 // std::string rtsp_url = "rtsp://192.168.51.168:5554/user=admin&password=&channel=1&stream=0.sdp?";
@@ -42,6 +44,9 @@ std::map<int, float> detect_targets = {
 
 int main()
 {
+    signal(SIGUSR1, handle_signal);
+    signal(SIGINT, handle_signal);
+
     spdlog::set_level(spdlog::level::debug);
     reda_cfg();
 #if 0
@@ -58,11 +63,22 @@ int main()
     stream = std::make_unique<RTSPStream>(rtsp_url, 640, 640, AV_PIX_FMT_BGR24);
     stream->startPlayer(RTSPStream::player_type::opencv);
 #endif
-    spdlog::info("Press Enter to stop...");
-    std::cin.get();
+    // spdlog::info("Press Enter to stop...");
+    // std::cin.get();
 
-    frame_loop_rinning = false;
+    while (frame_loop_rinning)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+
     stream->stop();
+
+    if (frame_loop_t.joinable())
+        frame_loop_t.join();
+
+    if (store_t.joinable())
+        store_t.join();
+
     return 0;
 }
 
@@ -202,5 +218,27 @@ void reda_cfg()
 
         if (reader.HasValue("TcpClient", "store_cmd"))
             store_cmd = reader.GetString("TcpClient", "store_cmd", "");
+    }
+
+    spdlog::info("\n*********************AI模块******************************\n"
+                 "RKNN: model_path: {}, model_label_path: {}, obj_class_num: {}, max_detect_num: {}\n"
+                 "RTSP: rtsp_url: {}\n"
+                 "TCP: store_server: {}:{}, store_cmd: {}\n"
+                 "*************************************************************",
+                 model_path, model_label_path, obj_class_num, max_detect_num, rtsp_url, store_server_ip, store_server_port, store_cmd);
+}
+void handle_signal(int signal)
+{
+    switch (signal)
+    {
+    case SIGINT:
+    {
+        frame_loop_rinning = false;
+        break;
+    }
+    default:
+    {
+        break;
+    }
     }
 }
