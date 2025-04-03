@@ -84,7 +84,7 @@ private:
 
     int64_t startTime;
 
-    int error_frame_count = 0;
+    int max_error_frame_count = 10;
 };
 
 #endif

@@ -26,6 +26,7 @@ target_sources(utils_obj
 target_include_directories(utils_obj
     PRIVATE
         ${UTILS_LIBRGA_SOURCE_PATH}/include
+         ${UTILS_LIBRGA_SOURCE_PATH}/../../rknn_yolov5/include
     PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}
 )
