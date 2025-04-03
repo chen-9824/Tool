@@ -4,10 +4,11 @@
 #include <opencv2/opencv.hpp>
 
 void frame_loop();
-RTSPStream::player_type player_type = RTSPStream::player_type::opencv;
+RTSPStream::player_type player_type = RTSPStream::player_type::none;
 std::unique_ptr<RTSPStream> stream;
-std::string rtsp_url = "rtsp://192.168.51.166:5554/user=admin&password=&channel=1&stream=0.sdp?";
-// std::string rtsp_url = "rtsp://192.168.147.128:8554/test";
+// std::string rtsp_url = "rtsp://192.168.51.166:5554/user=admin&password=&channel=1&stream=0.sdp?";
+std::string rtsp_url = "rtsp://127.0.0.1:8554/test";
+// std::string rtsp_url = "rtsp://192.168.51.168:5554/user=admin&password=&channel=1&stream=1.sdp?";
 bool frame_loop_rinning = false;
 std::thread stream_thread_;
 
@@ -77,13 +78,24 @@ void frame_loop()
     std::unique_ptr<VideoRenderer> opengl_player;
     opengl_player = std::make_unique<VideoRenderer>(width, height);
 
+    int64_t last_pts = -1; // 初始化为无效 PTS
+
     while (frame_loop_rinning)
     {
         stream->get_latest_frame(*latest_frame);
+        // AVFrame *frame = stream->get_latest_frame();
+        if (latest_frame->pts == last_pts)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
+        }
+
+        last_pts = latest_frame->pts;
+
         opengl_player->updateFrame(latest_frame->data[0]);
         opengl_player->render();
 
-        /*cv::Mat img(latest_frame->height, latest_frame->width, CV_8UC3, latest_frame->data[0], latest_frame->linesize[0]);
+        /*cv::Mat img(height, width, CV_8UC3, latest_frame->data[0]);
         cv::imshow("test", img);
         cv::waitKey(1);*/
     }
