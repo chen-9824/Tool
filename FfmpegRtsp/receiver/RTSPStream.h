@@ -48,6 +48,8 @@ private:
     bool is_frame_outdated(AVFrame *frame);
     bool is_pkt_outdated(AVPacket *packet);
 
+    void push_frame(AVFrame *frame);
+
 private:
     std::string url_;
     std::atomic<bool> running_;
@@ -71,6 +73,9 @@ private:
     std::queue<AVFrame *> frameQueue;
     std::mutex frameQueueMutex;
     std::condition_variable frameQueueCond;
+
+    int max_error_frame_count = 10;
+    int64_t startTime;
 };
 
 #endif

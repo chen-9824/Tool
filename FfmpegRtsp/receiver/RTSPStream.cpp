@@ -11,6 +11,7 @@ using Clock = std::chrono::high_resolution_clock;
 void print_elapsed_time(const Clock::time_point &start);
 
 const size_t MAX_QUEUE_SIZE = 30; // 限制队列大小
+const int MAX_DELAY_MS = 200;     // 最大延迟时间，单位毫秒
 
 RTSPStream::RTSPStream(const std::string &url, int dst_width, int dst_height, AVPixelFormat dst_fmt)
     : url_(url), running_(false), _dst_width(dst_width), _dst_height(dst_height), _dst_fmt(dst_fmt)
@@ -50,9 +51,16 @@ void RTSPStream::get_latest_frame(AVFrame &frame)
         return;
     }
     std::unique_lock<std::mutex> lock(frameQueueMutex);
-    frameQueueCond.wait(lock, [this]()
-                        { return latest_frame != nullptr; });
-    av_frame_copy(&frame, latest_frame); // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
+    int64_t last_pts = -1; // 初始化为无效 PTS
+    if (latest_frame)
+    {
+        last_pts = latest_frame->pts; // **先判断是否为空**
+    }
+
+    frameQueueCond.wait(lock, [this, last_pts]()
+                        { return latest_frame != nullptr && latest_frame->pts != last_pts; }); // **等待帧更新**
+    av_frame_copy(&frame, latest_frame);
+    frame.pts = latest_frame->pts; // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
     lock.unlock();
     // std::cout << "get_latest_frame success!" << std::endl;
 }
@@ -208,108 +216,190 @@ int RTSPStream::ffmpeg_rtsp_init()
 
 void RTSPStream::ffmpeg_rtsp_deinit()
 {
-    av_frame_free(&frame);
-    av_frame_free(&frame_bgr);
-    av_frame_free(&latest_frame);
-    av_packet_free(&packet);
-    avcodec_free_context(&codecCtx);
-    avformat_close_input(&formatCtx);
-    sws_freeContext(swsCtx);
+    if (frame != nullptr)
+    {
+        av_frame_free(&frame);
+        frame = nullptr;
+    }
+
+    if (frame_bgr != nullptr)
+    {
+        av_frame_free(&frame_bgr);
+        frame_bgr = nullptr;
+    }
+
+    if (latest_frame != nullptr)
+    {
+        av_frame_free(&latest_frame);
+        latest_frame = nullptr;
+    }
+
+    if (packet != nullptr)
+    {
+        av_packet_free(&packet);
+        packet = nullptr;
+    }
+
+    if (formatCtx != nullptr)
+    {
+        avformat_close_input(&formatCtx);
+        formatCtx = nullptr;
+    }
+
+    if (codecCtx)
+    {
+        avcodec_free_context(&codecCtx);
+        codecCtx = nullptr;
+    }
+
+    if (swsCtx != nullptr)
+    {
+        sws_freeContext(swsCtx);
+        swsCtx = nullptr;
+    }
 }
 
 void RTSPStream::streamLoop()
 {
     std::cout << "streamLoop start..." << std::endl;
 
-    if (ffmpeg_rtsp_init() != 0)
-    {
-        std::cout << "ffmpeg_rtsp_init failed!" << std::endl;
-        return;
-    }
+    int rtsp_initialized = -1;
+
+    auto start_time = Clock::now();
+    startTime = av_gettime();
+
+    int frameFinish;
+    int error_frame_count = 0;
 
     std::unique_ptr<VideoRenderer> opengl_player;
     if (_player_type == player_type::opengl)
     {
         opengl_player = std::make_unique<VideoRenderer>(_dst_width, _dst_height);
     }
-    auto start_time = Clock::now();
-    int64_t startTime = av_gettime();
-    while (running_ && av_read_frame(formatCtx, packet) >= 0)
+
+    while (running_)
     {
-        // h265无法丢帧，丢帧会使得无法解码
-        /*if (is_pkt_outdated(packet))
+
+        if (rtsp_initialized != 0)
         {
-            // 丢弃过期帧
-            av_packet_unref(packet);
-            // avcodec_flush_buffers(codecCtx); // 清理解码器缓冲区，防止异常
-            continue;
-        }*/
-        if (packet->stream_index == videoStreamIndex)
-        {
-            if (avcodec_send_packet(codecCtx, packet) == 0)
+            rtsp_initialized = ffmpeg_rtsp_init();
+
+            if (rtsp_initialized != 0)
             {
-                while (avcodec_receive_frame(codecCtx, frame) == 0)
+                std::cout << "ffmpeg_rtsp_init failed, wait reconncet..." << std::endl;
+                // spdlog::error("ffmpeg_rtsp_init failed, wait reconncet...");
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+                continue;
+            }
+
+            start_time = Clock::now();
+            startTime = av_gettime();
+        }
+
+        try
+        {
+            frameFinish = av_read_frame(formatCtx, packet);
+            if (frameFinish >= 0)
+            {
+                // h265无法丢帧，丢帧会使得无法解码
+                if (is_pkt_outdated(packet))
                 {
-                    if (is_frame_outdated(frame))
+                    // 丢弃过期帧
+                    av_packet_unref(packet);
+                    // avcodec_flush_buffers(codecCtx); // 清理解码器缓冲区，防止异常
+                    continue;
+                }
+                if (packet->stream_index == videoStreamIndex)
+                {
+                    if (avcodec_send_packet(codecCtx, packet) == 0)
                     {
-                        // 丢弃过期帧
-                        av_frame_unref(frame);
-                        continue;
-                    }
+                        while (avcodec_receive_frame(codecCtx, frame) == 0)
+                        {
+                            if (is_frame_outdated(frame))
+                            {
+                                // 丢弃过期帧
+                                av_frame_unref(frame);
+                                continue;
+                            }
 
-                    // std::cout << "Frame received (" << frame->width << "x" << frame->height << ")" << " fmt: " << frame->format << std::endl;
-                    //   将AVFrame转换为BGR格式
-                    int ret = sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, frame_bgr->data, frame_bgr->linesize);
-                    if (ret <= 0)
-                    {
-                        std::cerr << "sws_scale failed!" << std::endl;
-                        continue; // 不显示无效图像
-                    }
-                    // std::cout << "Frame convert (" << frame_bgr->width << "x" << frame_bgr->height << ")" << " fmt: " << frame_bgr->format << std::endl;
+                            // std::cout << "Frame received (" << frame->width << "x" << frame->height << ")" << " fmt: " << frame->format << std::endl;
+                            //   将AVFrame转换为BGR格式
+                            int ret = sws_scale(swsCtx, frame->data, frame->linesize, 0, frame->height, frame_bgr->data, frame_bgr->linesize);
+                            if (ret <= 0)
+                            {
+                                std::cerr << "sws_scale failed!" << std::endl;
+                                continue; // 不显示无效图像
+                            }
+                            frame_bgr->pts = frame->pts;
+                            // std::cout << "Frame convert (" << frame_bgr->width << "x" << frame_bgr->height << ")" << " fmt: " << frame_bgr->format << std::endl;
 
-                    if (frame_bgr->width > 0 && frame_bgr->height > 0)
-                    {
-                        if (_player_type == player_type::none)
-                        {
-                            std::lock_guard<std::mutex> lock(frameQueueMutex);
-                            av_frame_copy(latest_frame, frame_bgr); // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
-                            frameQueueCond.notify_one();
-                        }
-                        else if (_player_type == player_type::opencv)
-                        {
-                            print_frame_timestamp(frame);
-                            print_elapsed_time(start_time);
-                            std::cout << "=====================================" << std::endl;
-                            cv::Mat img(frame_bgr->height, frame_bgr->width, CV_8UC3, frame_bgr->data[0], frame_bgr->linesize[0]);
-                            cv::imshow("test", img);
-                            cv::waitKey(1);
-                        }
-                        else if (_player_type == player_type::opengl)
-                        {
-                            opengl_player->updateFrame(frame_bgr->data[0]);
-                            opengl_player->render();
+                            if (frame_bgr->width > 0 && frame_bgr->height > 0)
+                            {
+                                if (_player_type == player_type::none)
+                                {
+                                    /*std::lock_guard<std::mutex> lock(frameQueueMutex);
+                                    av_frame_copy(latest_frame, frame_bgr); // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
+                                    frameQueueCond.notify_one();*/
+
+                                    push_frame(frame_bgr);
+                                }
+                                else if (_player_type == player_type::opencv)
+                                {
+                                    print_frame_timestamp(frame);
+                                    print_elapsed_time(start_time);
+                                    std::cout << "=====================================" << std::endl;
+                                    cv::Mat img(frame_bgr->height, frame_bgr->width, CV_8UC3, frame_bgr->data[0], frame_bgr->linesize[0]);
+                                    cv::imshow("test", img);
+                                    cv::waitKey(1);
+                                }
+                                else if (_player_type == player_type::opengl)
+                                {
+                                    opengl_player->updateFrame(frame_bgr->data[0]);
+                                    opengl_player->render();
+                                }
+                            }
                         }
                     }
                 }
+                av_packet_unref(packet);
+
+                // 延时(不然文件会立即全部播放完)
+                // 定义时间基为微秒（AV_TIME_BASE）
+                AVRational timeBase = {1, AV_TIME_BASE};
+                // 将当前帧的时间戳（dts）从输入流的时间基转换为微秒时间基
+                int64_t ptsTime = av_rescale_q(packet->dts, formatCtx->streams[videoStreamIndex]->time_base, timeBase);
+                // 获取当前时间并减去播放开始时间，得到相对于播放开始时间的当前时间
+                int64_t nowTime = av_gettime() - startTime;
+                // 如果当前帧的显示时间还没到，就等待（睡眠）一段时间
+                if (ptsTime > nowTime)
+                {
+                    av_usleep(ptsTime - nowTime);
+                }
+            }
+            else
+            {
+                error_frame_count += 1;
+                char errbuf[AV_ERROR_MAX_STRING_SIZE];
+                av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, frameFinish);
+                std::cout << "av_read_frame error: " << frameFinish << ", " << errbuf << ", count:" << error_frame_count << std::endl;
+                // spdlog::error("av_read_frame error: {}, errbuf: {}, count: {}", frameFinish, errbuf, error_frame_count);
+                if (error_frame_count >= max_error_frame_count)
+                {
+                    std::cout << "exit av_read_frame loop..." << std::endl;
+                    // spdlog::error("exit av_read_frame loop...");
+                    throw std::runtime_error("av_read_frame error");
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(10)); // 如果读取帧数据失败，休眠一段时间再尝试
             }
         }
-        av_packet_unref(packet);
-
-        // 延时(不然文件会立即全部播放完)
-        // 定义时间基为微秒（AV_TIME_BASE）
-        AVRational timeBase = {1, AV_TIME_BASE};
-        // 将当前帧的时间戳（dts）从输入流的时间基转换为微秒时间基
-        int64_t ptsTime = av_rescale_q(packet->dts, formatCtx->streams[videoStreamIndex]->time_base, timeBase);
-        // 获取当前时间并减去播放开始时间，得到相对于播放开始时间的当前时间
-        int64_t nowTime = av_gettime() - startTime;
-        // 如果当前帧的显示时间还没到，就等待（睡眠）一段时间
-        if (ptsTime > nowTime)
+        catch (const std::exception &e)
         {
-            av_usleep(ptsTime - nowTime);
+            std::cerr << "错误: " << e.what() << "，重新初始化...\n";
+            ffmpeg_rtsp_deinit();
+            rtsp_initialized = -1; // 强制重新初始化
         }
     }
     ffmpeg_rtsp_deinit();
-    running_.store(false);
 }
 void print_elapsed_time(const Clock::time_point &start)
 {
@@ -342,7 +432,7 @@ bool RTSPStream::is_frame_outdated(AVFrame *frame)
 
     int64_t nowTime = av_gettime() - startTime;
 
-    std::cout << "frame_time: " << ptsTime << ", nowTime:" << nowTime << std::endl;
+    // std::cout << "frame_time: " << ptsTime << ", nowTime:" << nowTime << std::endl;
 
     // 计算延迟
     int64_t delay_ms = (nowTime - ptsTime) / 1000;
@@ -352,9 +442,14 @@ bool RTSPStream::is_frame_outdated(AVFrame *frame)
     {
         if ((frame->key_frame) == 0) // 非关键帧
         {
-            std::cerr
-                << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;
+            std::cerr << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;
+            // spdlog::warn("Frame is outdated, {} ms → discarded", delay_ms);
             return true; // 丢弃过期帧
+        }
+        else
+        {
+            // spdlog::warn("Frame is outdated, but it is key_frame, not discard!");
+            std::cout << "Frame is outdated, but it is key_frame, not discard!" << std::endl;
         }
     }
     return false; // 正常处理
@@ -378,9 +473,33 @@ bool RTSPStream::is_pkt_outdated(AVPacket *packet)
         // 检查是否是关键帧
         if ((packet->flags & AV_PKT_FLAG_KEY) == 0) // 非关键帧
         {
-            std::cerr << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;
+            // spdlog::warn("packet is outdated, {} ms → discarded", delay_ms);
+            std::cerr << "packet too old: " << delay_ms << " ms → discarded" << std::endl;
             return true; // 丢弃过期帧
+        }
+        else
+        {
+            // spdlog::warn("packet is outdated, but it is key_frame, not discard!");
+            std::cerr << "packet is outdated, but it is key_frame, not discard!" << std::endl;
         }
     }
     return false; // 正常处理
+}
+void RTSPStream::push_frame(AVFrame *frame)
+{
+    std::unique_lock<std::mutex> lock(frameQueueMutex);
+
+    // 释放旧帧
+    if (latest_frame)
+    {
+        av_frame_unref(latest_frame);
+    }
+
+    // 复制新帧数据
+    av_frame_ref(latest_frame, frame);
+    latest_frame->pts = frame->pts;
+
+    lock.unlock();
+    // 通知消费者
+    frameQueueCond.notify_one();
 }
