@@ -34,6 +34,7 @@ bool RTSPStream::startPlayer(player_type type)
 void RTSPStream::stop()
 {
     running_.store(false);
+    frameQueueCond.notify_all();
     if (stream_thread_.joinable())
     {
         stream_thread_.join();
@@ -50,7 +51,14 @@ void RTSPStream::get_latest_frame(AVFrame &frame)
 
     std::unique_lock<std::mutex> lock(frameQueueMutex);
     frameQueueCond.wait(lock, [this]()
-                        { return latest_frame != nullptr; });
+                        { return (!running_ || latest_frame != nullptr); });
+    if (!running_)
+    {
+        lock.unlock();
+        spdlog::info("get_latest_frame exit");
+        return;
+    }
+
     /* std::lock_guard<std::mutex> lock(frameQueueMutex);*/
     av_frame_copy(&frame, latest_frame); // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
     lock.unlock();
@@ -70,8 +78,13 @@ AVFrame *RTSPStream::get_latest_frame()
 
     frameQueueCond.wait(lock, [this, last_pts]()
                         {
-                            return latest_frame && latest_frame->pts != last_pts; // **等待帧更新**
+                            return (!running_ || (latest_frame && latest_frame->pts != last_pts)); // **等待帧更新**
                         });
+    if (!running_)
+    {
+        spdlog::info("get_latest_frame exit");
+        return nullptr;
+    }
     // std::cout << "get_latest_frame success!" << std::endl;
     // spdlog::debug("get_latest_frame success!");
     return latest_frame;
