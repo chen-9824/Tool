@@ -281,7 +281,6 @@ void RTSPStream::streamLoop()
     int rtsp_initialized = -1;
 
     auto start_time = Clock::now();
-
     startTime = av_gettime();
 
     int frameFinish;
