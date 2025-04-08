@@ -65,7 +65,7 @@ void RTSPStream::get_latest_frame(AVFrame &frame)
     /*std::cout << "get_latest_frame success!" << std::endl;
     print_frame_timestamp(latest_frame);*/
 }
-
+// 直接返回latest_frame是极不安全的，注意使用
 AVFrame *RTSPStream::get_latest_frame()
 {
     std::unique_lock<std::mutex> lock(frameQueueMutex);
