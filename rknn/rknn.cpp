@@ -166,3 +166,74 @@ int Rknn::inference(const Image &image, bool use_rga)
     printf("=================================================================\n");*/
     return detected;
 }
+
+int Rknn::inference(const Image &image, std::vector<InfereceRes> &rknn_res, bool use_rga)
+{
+    // std::cout << "start_inference" << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
+
+    int detected = 0;
+
+    image_buffer_t src_image;
+    src_image.width = image.width;
+    src_image.height = image.height;
+    src_image.format = IMAGE_FORMAT_RGB888;
+    src_image.virt_addr = image.data;
+    src_image.size = src_image.width * src_image.height * 3 * sizeof(unsigned char);
+
+    object_detect_result_list od_results;
+
+    int res = inference_yolov5_model(&_rknn_app_ctx, &src_image, &od_results, _obj_class_num, _prob_box_size, use_rga);
+    if (res != 0)
+    {
+        std::cout << "inference_yolov5_model fail! res = " << res << std::endl;
+        return -1;
+    }
+
+    /*auto inference = std::chrono::high_resolution_clock::now();
+    auto inference_duration = std::chrono::duration_cast<std::chrono::milliseconds>(inference - start);
+    std::cout << "inference time taken: " << inference_duration.count() << " milliseconds" << std::endl;*/
+
+    // 画框和概率
+    char text[256];
+    for (int i = 0; i < od_results.count; i++)
+    {
+        object_detect_result *det_result = &(od_results.results[i]);
+        /*printf("%s @ (%d %d %d %d) %.3f\n", coco_cls_to_name(_obj_class_num, det_result->cls_id),
+               det_result->box.left, det_result->box.top,
+               det_result->box.right, det_result->box.bottom,
+               det_result->prop);*/
+
+        InfereceRes i_res;
+        i_res.leftTop = Point(det_result->box.left, det_result->box.top);
+        i_res.rightBottom = Point(det_result->box.right, det_result->box.bottom);
+        i_res.type = det_result->cls_id;
+        i_res.label_name = coco_cls_to_name(_obj_class_num, det_result->cls_id);
+        i_res.confidence = det_result->prop;
+        rknn_res.push_back(i_res);
+
+        if (_save_img_type == Save_Img_Type::draw_rect)
+        {
+
+            int x1 = det_result->box.left;
+            int y1 = det_result->box.top;
+            int x2 = det_result->box.right;
+            int y2 = det_result->box.bottom;
+
+            draw_rectangle(&src_image, x1, y1, x2 - x1, y2 - y1, COLOR_BLUE, 3);
+            sprintf(text, "%s %.1f%%", coco_cls_to_name(_obj_class_num, det_result->cls_id), det_result->prop * 100);
+            draw_text(&src_image, text, x1, y1 - 20, COLOR_RED, 10);
+        }
+    }
+
+    if (_save_img_type != Save_Img_Type::none)
+    {
+        write_image(_save_img_path.c_str(), &src_image);
+    }
+
+    /*auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::cout << "Total time taken: " << duration.count() << " milliseconds" << std::endl;
+    printf("=================================================================\n");*/
+    return 0;
+}
