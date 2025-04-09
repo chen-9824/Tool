@@ -1,9 +1,218 @@
-<mxfile host="app.diagrams.net" modified="2025-04-09T08:53:58.239Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0" version="24.4.10" etag="4mDaH-sr56xjtyCD5rgI" type="github">
+<mxfile host="app.diagrams.net" modified="2025-04-09T09:33:21.979Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0" etag="uJTI0QWcYJinaakhyekH" version="24.4.10" type="github">
   <diagram name="第 1 页" id="rT0XGQqfWtDKfyvZjatR">
-    <mxGraphModel>
+    <mxGraphModel dx="2037" dy="1079" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-1" target="Gl3JSTup4Kv4xswK9OUD-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-1" value="开始" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="470" y="60" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-2" target="Gl3JSTup4Kv4xswK9OUD-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-2" value="&lt;div&gt;&amp;nbsp; // 1. 创建解码器&lt;/div&gt;&lt;div&gt;&amp;nbsp; int ret = mpp_create(&amp;amp;ctx, &amp;amp;mpi);&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="422.5" y="170" width="215" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-3" target="Gl3JSTup4Kv4xswK9OUD-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-3" value="&amp;nbsp; // 2. 初始化解码器&lt;div&gt;&amp;nbsp; ret = mpp_init(ctx, MPP_CTX_DEC, video_type);&lt;/div&gt;&lt;div&gt;&lt;div&gt;&amp;nbsp; // 2.2 设置内部分帧模式&lt;/div&gt;&lt;div&gt;&amp;nbsp; uint32_t need_split = 1;&lt;/div&gt;&lt;div&gt;&amp;nbsp; ret = mpp_dec_cfg_set_u32(cfg, &quot;base:split_parse&quot;, need_split);&lt;/div&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="350" y="270" width="360" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-4" target="Gl3JSTup4Kv4xswK9OUD-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-4" value="初始化 MppBufferGroup MppPacket&lt;div&gt;打开输入码流文件&amp;nbsp;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="422.5" y="440" width="215" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-5" target="Gl3JSTup4Kv4xswK9OUD-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-14" value="否" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Gl3JSTup4Kv4xswK9OUD-13">
+          <mxGeometry x="-0.2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-5">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="160" y="625" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-25" value="是" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Gl3JSTup4Kv4xswK9OUD-22">
+          <mxGeometry x="-0.092" y="-4" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-5" value="解码到指定帧数&lt;div&gt;或&lt;/div&gt;&lt;div&gt;输入码流文件读完&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="415" y="570" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-49" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-6" target="Gl3JSTup4Kv4xswK9OUD-7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-6" value="3.2.1 读取输入码流并配置输入packet" style="rounded=0;whiteSpace=wrap;html=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="422.5" y="730" width="215" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-30" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-7" target="Gl3JSTup4Kv4xswK9OUD-29">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-7" value="&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; // 3.2.3 packet传入解码器&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; ret = mpi-&amp;gt;decode_put_packet(ctx, packet);&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="376.25" y="850" width="297.5" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-50" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-8">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="525" y="1830" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-62" value="是" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Gl3JSTup4Kv4xswK9OUD-50">
+          <mxGeometry x="-0.0744" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-59" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-8">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1440" y="1715" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-61" value="否" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Gl3JSTup4Kv4xswK9OUD-59">
+          <mxGeometry x="-0.7925" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-8" value="packet是否被解码器消耗完" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="400" y="1660" width="250" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-23" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="160" y="630" as="sourcePoint" />
+            <mxPoint x="160" y="770" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-24" value="释放资源 结束" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="100" y="770" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-47" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-26" target="Gl3JSTup4Kv4xswK9OUD-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-48" value="否" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Gl3JSTup4Kv4xswK9OUD-47">
+          <mxGeometry x="-0.2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-55" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-26">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1360" y="1545" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-58" value="是" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Gl3JSTup4Kv4xswK9OUD-55">
+          <mxGeometry x="-0.7523" y="-1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-26" value="帧不具有eos&lt;div&gt;且&lt;br&gt;&lt;div&gt;拿到了完整一帧&lt;/div&gt;&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="400" y="1490" width="250" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-34" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-29" target="Gl3JSTup4Kv4xswK9OUD-33">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-29" value="&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; // 3.2.4 从解码器获取解码后的帧&lt;/div&gt;&lt;div&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; ret = mpi-&amp;gt;decode_get_frame(ctx, &amp;amp;frame);&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="376.25" y="980" width="297.5" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-42" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-32" target="Gl3JSTup4Kv4xswK9OUD-26">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-32" value="&lt;div&gt;得到已解码帧，处理帧内容&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="447.5" y="1330" width="155" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-36" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-33">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1035" y="1175" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-39" value="是" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Gl3JSTup4Kv4xswK9OUD-36">
+          <mxGeometry x="-0.2094" y="-3" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-41" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Gl3JSTup4Kv4xswK9OUD-33" target="Gl3JSTup4Kv4xswK9OUD-32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-45" value="否" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Gl3JSTup4Kv4xswK9OUD-41">
+          <mxGeometry x="-0.15" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-33" value="接收到解码器上报info change&lt;div&gt;if (mpp_frame_get_info_change(frame))&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="350" y="1100" width="350" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-43" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1020" y="1460" as="targetPoint" />
+            <mxPoint x="1020" y="1420" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-35" value="3.2.5 配置MppBufferGroup 并 通知解码器&lt;div&gt;grp = dec_buf_mgr_setup(buf_mgr, buf_size, 24, buf_mode)&lt;/div&gt;&lt;div&gt;ret = mpi-&amp;gt;control(ctx, MPP_DEC_SET_INFO_CHANGE_READY, NULL);;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="820" y="1310" width="470" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-40" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.536;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1035" y="1180" as="sourcePoint" />
+            <mxPoint x="1036.92" y="1310" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-44" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1025" y="1460" as="sourcePoint" />
+            <mxPoint x="535" y="1460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-51" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="520" y="1830" as="sourcePoint" />
+            <mxPoint x="1520" y="1830" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-53" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1440" y="820" as="sourcePoint" />
+            <mxPoint x="530" y="820" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-54" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1440" y="1710" as="sourcePoint" />
+            <mxPoint x="1440" y="820" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-56" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1360" y="940" as="sourcePoint" />
+            <mxPoint x="530" y="940" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-57" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1360" y="1540" as="sourcePoint" />
+            <mxPoint x="1360" y="940" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-63" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1520" y="530" as="sourcePoint" />
+            <mxPoint x="530" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-64" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1520" y="1830" as="sourcePoint" />
+            <mxPoint x="1520" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gl3JSTup4Kv4xswK9OUD-65" value="该packet还有帧" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=21;" vertex="1" parent="1">
+          <mxGeometry x="630" y="1560" width="170" height="40" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
