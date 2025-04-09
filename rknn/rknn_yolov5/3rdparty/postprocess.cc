@@ -616,4 +616,7 @@ void deinit_post_process(int obj_class_num)
             labels[i] = nullptr;
         }
     }
+
+    delete[] labels;
+    labels = nullptr;
 }

@@ -22,7 +22,11 @@ MyTcpClient::~MyTcpClient()
     _stop_flag = true;
     _connect_flag = false;
     if (_connect_thread != nullptr && _connect_thread->joinable())
+    {
         _connect_thread->join();
+        delete _connect_thread;
+        _connect_thread = nullptr;
+    }
 
     stop();
 
@@ -89,7 +93,7 @@ void MyTcpClient::receiverLoop()
 }
 void MyTcpClient::connectLoop()
 {
-    //std::cout << __func__ << " " << _server_ip << ":" << _server_port << " connect start!" << std::endl;
+    // std::cout << __func__ << " " << _server_ip << ":" << _server_port << " connect start!" << std::endl;
     spdlog::info("MyTcpClient connectLoop start, {0}:{1}", _server_ip, _server_port);
 
     while (!_connect_flag)
@@ -103,7 +107,7 @@ void MyTcpClient::connectLoop()
         _sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (_sock_fd < 0)
         {
-            //std::cerr << __func__ << " Socket creation failed!" << std::endl;
+            // std::cerr << __func__ << " Socket creation failed!" << std::endl;
             spdlog::error("MyTcpClient Socket creation failed!");
             return;
         }
@@ -114,7 +118,7 @@ void MyTcpClient::connectLoop()
         server_addr.sin_port = htons(_server_port);
         if (inet_pton(AF_INET, _server_ip.c_str(), &server_addr.sin_addr) <= 0)
         {
-            //std::cerr << __func__ << " Invalid server IP address! " << _server_ip << std::endl;
+            // std::cerr << __func__ << " Invalid server IP address! " << _server_ip << std::endl;
             spdlog::error("Invalid server IP address! address:{}", _server_ip);
             return;
         }
@@ -130,7 +134,7 @@ void MyTcpClient::connectLoop()
             _heartbeat_thread = new std::thread(&MyTcpClient::heartbeatLoop, this);
 #endif
 
-            //std::cout << __func__ << " " << _server_ip << ":" << _server_port << " connect successes!" << std::endl;
+            // std::cout << __func__ << " " << _server_ip << ":" << _server_port << " connect successes!" << std::endl;
             spdlog::info("MyTcpClient connectLoop connect successes!, {0}:{1}", _server_ip, _server_port);
             // break;
         }
@@ -156,10 +160,10 @@ void MyTcpClient::connectLoop()
         }
 
         stop();
-        //std::cerr << "Attempting to reconnect..." << std::endl;
+        // std::cerr << "Attempting to reconnect..." << std::endl;
         spdlog::info("MyTcpClient {0}:{1} connectLoop Attempting to reconnect...", _server_ip, _server_port);
     }
-    //std::cout << __func__ << " exit..." << std::endl;
+    // std::cout << __func__ << " exit..." << std::endl;
     spdlog::info("MyTcpClient {0}:{1} connectLoop exit...", _server_ip, _server_port);
 }
 void MyTcpClient::senderLoop()
@@ -220,6 +224,7 @@ void MyTcpClient::stop()
     {
         // pthread_cancel(_receiver_thread->native_handle());
         _receiver_thread->join();
+        delete _receiver_thread;
         _receiver_thread = nullptr;
     }
 
@@ -227,12 +232,14 @@ void MyTcpClient::stop()
     {
         _send_queue_cv.notify_one();
         _sender_thread->join();
+        delete _sender_thread;
         _sender_thread = nullptr;
     }
 
     if (_heartbeat_thread != nullptr && _heartbeat_thread->joinable())
     {
         _heartbeat_thread->join();
+        delete _heartbeat_thread;
         _heartbeat_thread = nullptr;
     }
 
