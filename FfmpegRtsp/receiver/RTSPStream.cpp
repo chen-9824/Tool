@@ -189,9 +189,9 @@ int RTSPStream::ffmpeg_rtsp_init()
     // 分配 YUV420P 和 BGR24 格式的图像空间
     int y_size = codecCtx->width * codecCtx->height;
     int uv_size = y_size / 4;
-    uint8_t *yuv_buffer = (uint8_t *)av_malloc(y_size + 2 * uv_size);
-    uint8_t *bgr_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(_dst_fmt, _dst_width, _dst_height, 1));
-    uint8_t *lates_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(_dst_fmt, _dst_width, _dst_height, 1));
+    yuv_buffer = (uint8_t *)av_malloc(y_size + 2 * uv_size);
+    bgr_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(_dst_fmt, _dst_width, _dst_height, 1));
+    lates_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(_dst_fmt, _dst_width, _dst_height, 1));
 
     // 将数据绑定到 AVFrame
     av_image_fill_arrays(frame->data, frame->linesize, yuv_buffer, AV_PIX_FMT_YUV420P, codecCtx->width, codecCtx->height, 1);
@@ -232,6 +232,24 @@ void RTSPStream::ffmpeg_rtsp_deinit()
     {
         av_frame_free(&latest_frame);
         latest_frame = nullptr;
+    }
+
+    if (yuv_buffer != nullptr)
+    {
+        av_free(yuv_buffer);
+        yuv_buffer = nullptr;
+    }
+
+    if (bgr_buffer != nullptr)
+    {
+        av_free(bgr_buffer);
+        bgr_buffer = nullptr;
+    }
+
+    if (lates_buffer != nullptr)
+    {
+        av_free(lates_buffer);
+        lates_buffer = nullptr;
     }
 
     if (packet != nullptr)
