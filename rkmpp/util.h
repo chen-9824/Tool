@@ -54,7 +54,7 @@ typedef struct MpiDecTestCmd_t
 
     /* data for share */
     FileReader reader;
-    FpsCalc fps;
+    // FpsCalc fps;
 
     /* runtime log flag */
     RK_U32 quiet;
