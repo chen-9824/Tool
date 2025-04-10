@@ -20,7 +20,7 @@ static void handle_signal(int signal);
 
 std::unique_ptr<RTSPStream> stream;
 // std::string rtsp_url = "rtsp://192.168.51.168:5554/user=admin&password=&channel=1&stream=0.sdp?";
-std::string rtsp_url = "rtsp://192.168.51.168:5554/user=admin&password=&channel=1&stream=1.sdp?";
+std::string rtsp_url = "rtsp://192.168.51.166:5554/user=admin&password=&channel=1&stream=1.sdp?";
 // std::string rtsp_url = "rtsp://192.168.51.166:5554/user=admin&password=&channel=1&stream=0.sdp?";
 //  std::string rtsp_url = "rtsp://admin:p@ssw0rd@192.168.63.65/h264/ch33/main/av_stream";
 //   std::string rtsp_url = "rtsp://192.168.147.128:8554/test";
@@ -127,8 +127,10 @@ void frame_loop()
         infer_img.width = width;
         infer_img.height = height;
         infer_img.data = frame->data[0];
+        int num = 0;
         // int num = rknn.inference(infer_img, 0);
-        int num = rknn.inference(infer_img);
+
+        // num = rknn.inference(infer_img);
 
 #if OPENCV_SHOW
         cv::Mat img(infer_img.height, infer_img.width, CV_8UC3, infer_img.data);

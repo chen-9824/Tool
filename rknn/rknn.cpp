@@ -72,6 +72,12 @@ int Rknn::get_input_arrt(ModeAttr &attr)
     return 0;
 }
 
+void Rknn::save_img_enable(Save_Img_Type type, std::string img_path)
+{
+    _save_img_type = type;
+    _save_img_path = img_path;
+}
+
 void Rknn::set_detect_targets(const std::map<int, float> &detect_targets)
 {
     _detect_targets = detect_targets;
@@ -131,17 +137,17 @@ int Rknn::inference(const Image &image, bool use_rga)
             }
         }
 
-#if 1
+        if (_save_img_type == Save_Img_Type::draw_rect)
+        {
+            int x1 = det_result->box.left;
+            int y1 = det_result->box.top;
+            int x2 = det_result->box.right;
+            int y2 = det_result->box.bottom;
 
-        int x1 = det_result->box.left;
-        int y1 = det_result->box.top;
-        int x2 = det_result->box.right;
-        int y2 = det_result->box.bottom;
-
-        draw_rectangle(&src_image, x1, y1, x2 - x1, y2 - y1, COLOR_BLUE, 3);
-        sprintf(text, "%s %.1f%%", coco_cls_to_name(_obj_class_num, det_result->cls_id), det_result->prop * 100);
-        draw_text(&src_image, text, x1, y1 - 20, COLOR_RED, 10);
-#endif
+            draw_rectangle(&src_image, x1, y1, x2 - x1, y2 - y1, COLOR_BLUE, 3);
+            sprintf(text, "%s %.1f%%", coco_cls_to_name(_obj_class_num, det_result->cls_id), det_result->prop * 100);
+            draw_text(&src_image, text, x1, y1 - 20, COLOR_RED, 10);
+        }
     }
 
 #if 0
@@ -153,12 +159,10 @@ int Rknn::inference(const Image &image, bool use_rga)
     }
 #endif
 
-#if 0
-    // if (od_results.count > 0)
+    if (_save_img_type != Save_Img_Type::none)
     {
-        write_image("rknn_out.jpg", &src_image);
+        write_image(_save_img_path.c_str(), &src_image);
     }
-#endif
 
     /*auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

@@ -5,7 +5,7 @@
 
 const size_t MAX_QUEUE_SIZE = 30; // 限制队列大小
 
-const int MAX_DELAY_MS = 20; // 最大延迟时间，单位毫秒
+const int MAX_DELAY_MS = 200; // 最大延迟时间，单位毫秒
 
 using Clock = std::chrono::high_resolution_clock;
 void print_elapsed_time(const Clock::time_point &start);
@@ -33,14 +33,16 @@ bool RTSPStream::startPlayer(player_type type)
 
 void RTSPStream::stop()
 {
+    spdlog::info("RTSPStream stoping...");
     running_.store(false);
     frameQueueCond.notify_all();
     if (stream_thread_.joinable())
     {
         stream_thread_.join();
     }
+    spdlog::info("RTSPStream stop!");
 }
-
+// 注意，用户使用完需要释放
 void RTSPStream::get_latest_frame(AVFrame &frame)
 {
     if (!frame.data[0])
@@ -52,6 +54,7 @@ void RTSPStream::get_latest_frame(AVFrame &frame)
     std::unique_lock<std::mutex> lock(frameQueueMutex);
     frameQueueCond.wait(lock, [this]()
                         { return (!running_ || latest_frame != nullptr); });
+
     if (!running_)
     {
         lock.unlock();
@@ -62,10 +65,11 @@ void RTSPStream::get_latest_frame(AVFrame &frame)
     /* std::lock_guard<std::mutex> lock(frameQueueMutex);*/
     av_frame_copy(&frame, latest_frame); // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
     lock.unlock();
+
     /*std::cout << "get_latest_frame success!" << std::endl;
     print_frame_timestamp(latest_frame);*/
 }
-// 直接返回latest_frame是极不安全的，注意使用
+
 AVFrame *RTSPStream::get_latest_frame()
 {
     std::unique_lock<std::mutex> lock(frameQueueMutex);
@@ -312,6 +316,7 @@ void RTSPStream::streamLoop()
     int rtsp_initialized = -1;
 
     auto start_time = Clock::now();
+
     startTime = av_gettime();
 
     int frameFinish;
@@ -330,10 +335,6 @@ void RTSPStream::streamLoop()
                 std::this_thread::sleep_for(std::chrono::seconds(5));
                 continue;
             }
-
-            start_time = Clock::now();
-
-            startTime = av_gettime();
         }
 
         try
@@ -423,8 +424,8 @@ void RTSPStream::streamLoop()
                         }
                         // std::cout << "=====================================" << std::endl;
                     }
-                    av_packet_unref(packet);
                 }
+                av_packet_unref(packet);
                 /*std::cout << "全部耗时: " << std::endl;
                 print_elapsed_time(total_start_time);
                 std::cout << "**************************************************" << std::endl;*/
@@ -490,12 +491,12 @@ bool RTSPStream::is_frame_outdated(AVFrame *frame)
         {
             /*std::cerr
                 << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;*/
-            spdlog::warn("Frame is outdated, {} ms → discarded", delay_ms);
+            spdlog::debug("Frame is outdated, {} ms → discarded", delay_ms);
             return true; // 丢弃过期帧
         }
         else
         {
-            spdlog::warn("Frame is outdated, but it is key_frame, not discard!");
+            spdlog::debug("Frame is outdated, but it is key_frame, not discard!");
         }
     }
     return false; // 正常处理

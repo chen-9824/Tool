@@ -26,6 +26,8 @@ public:
     {
         long x;
         long y;
+
+        Point(long _x = 0, long _y = 0) : x(_x), y(_y) {}
     };
     struct Image
     {
@@ -76,6 +78,9 @@ public:
 
     int get_input_arrt(ModeAttr &attr);
 
+    //
+    void save_img_enable(Save_Img_Type type, std::string img_path);
+
     // 设置检测对象id及置信度
     // 在推理得到的结果中判断是否存在待检测对象, 若存在且高于置信度, 推理函数返回 n, 表示推理结果存在 n 个待检测对象
     void set_detect_targets(const std::map<int, float> &detect_targets);
@@ -102,6 +107,9 @@ private:
     uint _prob_box_size;
 
     std::map<int, float> _detect_targets;
+
+    Save_Img_Type _save_img_type = Save_Img_Type::none;
+    std::string _save_img_path;
 };
 
 #endif // RKNN_H
