@@ -392,15 +392,7 @@ void RTSPStream::streamLoop()
 
                                     // spdlog::debug("frame timestamp: {}", get_frame_timestamp(frame_bgr));
 
-                                    /*std::lock_guard<std::mutex> lock(frameQueueMutex);
-                                    av_frame_copy(latest_frame, frame_bgr); // 如果需要降低获取最新帧数据的延迟，可以考虑减少一次复制，直接传回frame_bgr
-                                    latest_frame->pts = frame->pts;
-                                    frameQueueCond.notify_one();
-
-                                    */
-
                                     push_frame(frame_bgr);
-
                                     // print_elapsed_time();
                                     // print_elapsed_time(start_time);
                                     /*std::cout
@@ -425,7 +417,7 @@ void RTSPStream::streamLoop()
                         // std::cout << "=====================================" << std::endl;
                     }
                 }
-                av_packet_unref(packet);
+
                 /*std::cout << "全部耗时: " << std::endl;
                 print_elapsed_time(total_start_time);
                 std::cout << "**************************************************" << std::endl;*/
@@ -442,6 +434,8 @@ void RTSPStream::streamLoop()
                 {
                     av_usleep(ptsTime - nowTime);
                 }
+
+                av_packet_unref(packet);
             }
             else
             {
@@ -467,6 +461,7 @@ void RTSPStream::streamLoop()
     }
     ffmpeg_rtsp_deinit();
 }
+
 bool RTSPStream::is_frame_outdated(AVFrame *frame)
 {
     if (frame->pts == AV_NOPTS_VALUE)
@@ -475,7 +470,8 @@ bool RTSPStream::is_frame_outdated(AVFrame *frame)
         return false;
     }
     AVRational timeBase = {1, AV_TIME_BASE};
-    int64_t ptsTime = av_rescale_q(packet->dts, formatCtx->streams[videoStreamIndex]->time_base, timeBase);
+    int64_t ptsTime = av_rescale_q(
+        packet->dts, formatCtx->streams[videoStreamIndex]->time_base, timeBase);
 
     int64_t nowTime = av_gettime() - startTime;
 
@@ -490,7 +486,7 @@ bool RTSPStream::is_frame_outdated(AVFrame *frame)
         if ((frame->key_frame) == 0) // 非关键帧
         {
             /*std::cerr
-                << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;*/
+                      << "Frame too old: " << delay_ms << " ms → discarded" << std::endl;*/
             spdlog::debug("Frame is outdated, {} ms → discarded", delay_ms);
             return true; // 丢弃过期帧
         }

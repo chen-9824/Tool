@@ -1,26 +1,42 @@
 #include <iostream>
 
-#include "rk_mpi.h"
-#include "util.h"
 #include "RTSPStream.h"
+#include "MppRtspRecv.h"
 #include <opencv2/opencv.hpp>
+#include <csignal>
 
 #define OPENCV_SHOW 1
 
-std::string rtsp_url = "rtsp://192.168.51.166:5554/user=admin&password=&channel=1&stream=1.sdp?";
+// std::string rtsp_url = "rtsp://192.168.51.166:5554/user=admin&password=&channel=1&stream=0.sdp?";
+std::string rtsp_url = "rtsp://192.168.51.189:8554/test";
 
 std::unique_ptr<RTSPStream> stream;
+std::unique_ptr<MppRtspRecv> mpp_stream;
 bool frame_loop_rinning = false;
 std::thread stream_thread_;
 
 void frame_loop();
 
-int dec_decode()
+void handle_signal(int signal)
 {
+    switch (signal)
+    {
+    case SIGINT:
+    {
+        frame_loop_rinning = false;
+        break;
+    }
+    default:
+    {
+        break;
+    }
+    }
 }
 
 int main(int, char **)
 {
+
+    signal(SIGINT, handle_signal);
     std::cout << "Hello, from RKMPP!\n";
 
     frame_loop_rinning = true;
@@ -47,8 +63,18 @@ void frame_loop()
     // 将数据绑定到 AVFrame
     av_image_fill_arrays(latest_frame->data, latest_frame->linesize, lates_buffer, fmt, width, height, 1);
 
-    stream = std::make_unique<RTSPStream>(rtsp_url, width, height, fmt);
-    stream->startPlayer(RTSPStream::player_type::none);
+    // stream = std::make_unique<RTSPStream>(rtsp_url, width, height, fmt);
+    // stream->startPlayer(RTSPStream::player_type::none);
+
+    mpp_stream = std::make_unique<MppRtspRecv>(rtsp_url, width, height, fmt);
+    mpp_stream->startPlayer(RTSPStream::player_type::none);
+
+    while (frame_loop_rinning)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+
+#if 0
 
     int dectect_num = 0;
     while (frame_loop_rinning)
@@ -76,6 +102,8 @@ void frame_loop()
 
 #endif
     }
+#endif
 
     av_frame_free(&latest_frame);
+    mpp_stream->stop();
 }

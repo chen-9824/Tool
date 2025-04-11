@@ -33,16 +33,27 @@ LINK_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
 include_directories(${CMAKE_SOURCE_DIR}/receiver)
 include_directories(${CMAKE_SOURCE_DIR}/spdlog/include)
+include_directories(${CMAKE_SOURCE_DIR}/rkmpp/include/rockchip/)
 
-add_executable(RKMPP main.cpp RkMpp.cpp util.cpp ${CMAKE_SOURCE_DIR}/receiver/RTSPStream.cpp)
+# Operation System Abstract Layer (OSAL) include
+include_directories(rkmpp/osal/inc)
+# OSAL is needed on all platform, do not need option
+add_subdirectory(rkmpp/osal)
 
-target_include_directories(RKMPP PRIVATE mpp/include/rockchip/)
-target_link_directories(RKMPP PRIVATE mpp/lib)
+#include_directories(rkmpp/utils)
+#file(GLOB SRC_FILES "${CMAKE_SOURCE_DIR}/rkmpp/utils/*.c")
+
+
+
+add_executable(RKMPP main.cpp RkMpp.cpp ${CMAKE_SOURCE_DIR}/receiver/RTSPStream.cpp ${CMAKE_SOURCE_DIR}/receiver/MppRtspRecv.cpp ${SRC_FILES})
+
+#target_include_directories(RKMPP PRIVATE rkmpp/include/rockchip/)
+target_link_directories(RKMPP PRIVATE rkmpp/lib)
 
 target_link_libraries(RKMPP rockchip_mpp spdlog::spdlog 
 -lavcodec -lavformat -lavutil -lswresample -lswscale -lswscale -lavfilter 
  ${OpenCV_LIBS})
 
 set_target_properties(RKMPP PROPERTIES
-    BUILD_RPATH "mpp/lib"
+    BUILD_RPATH "rkmpp/lib"
 )
