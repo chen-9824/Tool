@@ -67,6 +67,9 @@ private:
     AVFrame *frame = nullptr;
     AVFrame *frame_bgr = nullptr;
     AVFrame *latest_frame = nullptr;
+    uint8_t *yuv_buffer = nullptr;
+    uint8_t *bgr_buffer = nullptr;
+    uint8_t *lates_buffer = nullptr;
     int videoStreamIndex = -1;
     SwsContext *swsCtx = nullptr;
 
